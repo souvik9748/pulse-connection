@@ -13,26 +13,43 @@ async function registerNotifications() {
     }
 
     try {
-        // STEP A: Ask for permission explicitly
-        // iOS requires this to happen inside a click event (which we do in send())
+        // 1. Permission Check
         const permission = await Notification.requestPermission();
-        
-        if (permission !== 'granted') {
-            // Optional: Alert user if they blocked it previously
-            // alert("Notifications blocked. Please reset permissions for this app.");
-            return;
+        if (permission !== 'granted') return;
+
+        // 2. Register SW
+        const register = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+        let subscription;
+
+        // 3. Try to Subscribe
+        try {
+            subscription = await register.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+        } catch (err) {
+            // ⚠️ FIX: If Key Mismatch Error, Unsubscribe and Retry
+            if (err.message.includes('applicationServerKey') || err.message.includes('gcm_sender_id')) {
+                console.warn("Old key detected. Resetting subscription...");
+                
+                // A. Get the old broken subscription
+                const oldSub = await register.pushManager.getSubscription();
+                if (oldSub) { 
+                    await oldSub.unsubscribe(); 
+                }
+
+                // B. Try subscribing again with new key
+                subscription = await register.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+                });
+            } else {
+                throw err; // If it's a different error, stop here
+            }
         }
 
-        // STEP B: Register Service Worker
-        const register = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        
-        // STEP C: Subscribe
-        const subscription = await register.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-        });
-
-        // STEP D: Send to Server
+        // 4. Send to Server
         await fetch('/subscribe', {
             method: 'POST',
             body: JSON.stringify({ username: user, subscription }),
@@ -43,8 +60,7 @@ async function registerNotifications() {
 
     } catch (err) {
         console.error("❌ Notification Error:", err);
-        // This alert helps debugging on iPhone. Remove it later.
-        alert("Push Error: " + err.message);
+        alert("Push Setup Failed: " + err.message); // Debug Alert
     }
 }
 
