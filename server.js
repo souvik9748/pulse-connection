@@ -12,7 +12,12 @@ const port = process.env.PORT || 3000;
 // --- 1. MONGODB CONNECTION ---
 // On Render, we set this variable in the dashboard.
 // On Localhost, you can replace this string with your Atlas URL for testing.
-const mongoURI = process.env.MONGO_URI || 'mongodb+srv://souviksarkarsarkar3_db_user:PEVNYsmH7NlEwIoY@cluster0.btwrhw5.mongodb.net/?appName=Cluster0';
+const mongoURI = process.env.MONGO_URI;
+
+if (!mongoURI) {
+    console.error("❌ FATAL ERROR: No MONGO_URI found. Check .env file or Render dashboard.");
+    process.exit(1);
+}
 
 mongoose.connect(mongoURI)
     .then(() => console.log("✅ MongoDB Connected"))
@@ -45,8 +50,9 @@ const History = mongoose.model('History', HistorySchema);
 const Subscription = mongoose.model('Subscription', SubSchema);
 
 // --- 3. NOTIFICATIONS ---
-const publicVapidKey = 'BIvIFDWuVqAYNY-EAeG71dFwpMzXS8AJN7pKoknRJ7f_RNiwA9GRXpIP38Ax4MDwbk8EsNQwq1jrypusdhZJUu8';
-const privateVapidKey = 'ifMPxa8FH6-RZx-vpxADE9iWo7gEIH_j1b2JWBuYnXM'; // In production, use process.env.PRIVATE_KEY
+const publicVapidKey = process.env.PUBLIC_VAPID_KEY;
+const privateVapidKey = process.env.PRIVATE_VAPID_KEY;
+
 webpush.setVapidDetails('mailto:test@test.com', publicVapidKey, privateVapidKey);
 
 // --- 4. MIDDLEWARE ---
@@ -182,9 +188,22 @@ app.post('/send-love', async (req, res) => {
 // --- CLIENT & ADMIN HELPERS ---
 
 // Auth Check Helper for Client JS
-app.get('/me', (req, res) => {
-    if(req.cookies.pulse_user) res.json({ user: req.cookies.pulse_user });
-    else res.status(401).json({ user: null });
+app.get('/me', async (req, res) => {
+    if (!req.cookies.pulse_user) return res.status(401).json({ user: null });
+
+    // Find the current user
+    const user = await User.findOne({ username: req.cookies.pulse_user });
+    if (!user) return res.status(401).json({ user: null });
+
+    // Find their partner
+    let partnerName = "them";
+    if (user.partnerId) {
+        const partner = await User.findById(user.partnerId);
+        // Use Full Name if available, otherwise username
+        if (partner) partnerName = partner.fullName || partner.username;
+    }
+
+    res.json({ user: user.username, partnerName });
 });
 
 app.get('/logout', (req, res) => {

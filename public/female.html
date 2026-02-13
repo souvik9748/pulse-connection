@@ -50,9 +50,21 @@
     <div id="vid"><video id="sv" src="soul.mp4" playsinline></video></div>
 
     <script>
-        // Copy Paste CLIENT SIDE SCRIPT LOGIC from previous steps
-        // (Includes the fetch /me check, logout button code you requested earlier)
-        fetch('/me').then(r=>{if(r.status===401)window.location.href='/index.html';return r.json()});
+        // 1. Store partner name (Default to 'them' if loading)
+        let partnerName = "them";
+
+        // 2. Fetch User Info AND Partner Name
+        fetch('/me')
+            .then(r => {
+                if(r.status===401) window.location.href='/index.html';
+                return r.json();
+            })
+            .then(data => {
+                // Save the partner's name if the server sent it
+                if(data.partnerName) partnerName = data.partnerName;
+            });
+
+        // 3. Logout Button Logic
         window.addEventListener('load',()=>{const b=document.createElement('button');b.innerText="Logout";b.onclick=()=>window.location.href='/logout';Object.assign(b.style,{position:'fixed',top:'20px',right:'20px',background:'transparent',color:'rgba(255,255,255,0.5)',border:'1px solid rgba(255,255,255,0.3)',padding:'5px 15px',borderRadius:'20px',cursor:'pointer',zIndex:1000});document.body.appendChild(b);});
 
         let myLoc = null;
@@ -60,11 +72,17 @@
             (l) => { myLoc=l; document.getElementById('guard').style.display='none'; document.getElementById('main-ui').style.opacity='1'; document.getElementById('main-ui').style.pointerEvents='auto'; },
             () => { document.querySelector('#guard h2').innerText="Location Required"; document.getElementById('perm-btn').style.display='block'; }
         );
+
         function send() {
             sendLove(myLoc); 
             const v=document.getElementById('vid'); const sv=document.getElementById('sv');
             v.style.display='flex'; sv.currentTime=0; sv.play();
-            sv.onended=()=>{ v.style.display='none'; alert("Your heartbeat has reached them."); };
+            
+            // 4. USE THE PARTNER NAME HERE
+            sv.onended=()=>{ 
+                v.style.display='none'; 
+                alert(`Your heartbeat has reached ${partnerName}.`); 
+            };
         }
     </script>
 </body>
