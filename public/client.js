@@ -1,4 +1,4 @@
-const publicVapidKey = 'BIvIFDWuVqAYNY-EAeG71dFwpMzXS8AJN7pKoknRJ7f_RNiwA9GRXpIP38Ax4MDwbk8EsNQwq1jrypusdhZJUu8';
+const publicVapidKey = 'BF5J5oCuArj-V05wynt72pgVjrrwRIVHyz7H1UaU35dSlf3F9_tB4DjIypP68fI-lXDETgr53zocSkDiarcgCIo';
 
 // 1. Register Notifications
 async function registerNotifications() {
