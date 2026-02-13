@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 
 const app = express();
 const port = process.env.PORT || 3000;
+const adminPassword = process.env.ADMIN_PASSWORD
 
 // --- 1. MONGODB CONNECTION ---
 // On Render, we set this variable in the dashboard.
@@ -82,7 +83,7 @@ app.post('/login', async (req, res) => {
     const lowerUser = username.toLowerCase();
 
     // Admin Backdoor
-    if(lowerUser === 'admin' && password === 'admin') {
+    if(lowerUser === 'admin' && password === adminPassword) {
         res.cookie('pulse_user', 'admin', { httpOnly: true });
         return res.json({ success: true, redirect: '/admin.html' });
     }
