@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Her | Pulse</title>
+    <script src="client.js"></script>
+    <style>
+        /* Rose Nebula Theme */
+        body { margin:0; height:100vh; overflow:hidden; font-family:'Segoe UI', sans-serif; background: radial-gradient(circle at center, #2e1a26 0%, #000000 100%); display:flex; justify-content:center; align-items:center; }
+        
+        /* Nebula Clouds Effect */
+        .nebula { position:absolute; width:100%; height:100%; opacity:0.5; background: radial-gradient(circle at 30% 30%, rgba(255, 117, 140, 0.2), transparent 50%), radial-gradient(circle at 70% 70%, rgba(162, 155, 254, 0.2), transparent 50%); animation: drift 10s ease-in-out infinite alternate; pointer-events: none; }
+        @keyframes drift { from{transform:scale(1);} to{transform:scale(1.1);} }
+
+        /* The Button (Heart) */
+        #main-ui { z-index: 10; opacity: 0; transition: opacity 1s; }
+        .soul-btn {
+            width: 180px; height: 180px;
+            border-radius: 50%; border: none;
+            background: radial-gradient(circle, #ff9eb5, #e94560);
+            box-shadow: 0 0 50px rgba(233, 69, 96, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.5);
+            font-size: 60px; color: white; cursor: pointer;
+            transition: all 0.3s;
+            animation: heartbeat 2s infinite;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .soul-btn:active { transform: scale(0.9); box-shadow: 0 0 20px rgba(233, 69, 96, 0.6); }
+        @keyframes heartbeat { 0% {transform: scale(1); box-shadow: 0 0 40px rgba(233, 69, 96, 0.4);} 15% {transform: scale(1.05); box-shadow: 0 0 60px rgba(233, 69, 96, 0.6);} 30% {transform: scale(1); box-shadow: 0 0 40px rgba(233, 69, 96, 0.4);} }
+
+        /* Video & Guard */
+        #vid { position:fixed; top:0; left:0; width:100%; height:100%; background:black; display:none; justify-content:center; align-items:center; z-index:999; }
+        video { width:100%; height:100%; object-fit:cover; mix-blend-mode:screen; }
+        #guard { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:1000; text-align:center; }
+        #guard button { margin-top:20px; padding:10px 20px; background:#e94560; border:none; color:white; border-radius:5px; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="nebula"></div>
+    
+    <div id="guard">
+        <h2 style="font-weight:300; letter-spacing:2px;">Aligning Stars...</h2>
+        <button id="perm-btn" style="display:none" onclick="location.reload()">Grant Access</button>
+    </div>
+
+    <div id="main-ui">
+        <button class="soul-btn" onclick="send()">❤️</button>
+        <div style="text-align:center; color:rgba(255,255,255,0.5); margin-top:20px; letter-spacing:1px; font-size:0.9em;">TAP TO SEND LOVE</div>
+    </div>
+
+    <div id="vid"><video id="sv" src="soul.mp4" playsinline></video></div>
+
+    <script>
+        // Copy Paste CLIENT SIDE SCRIPT LOGIC from previous steps
+        // (Includes the fetch /me check, logout button code you requested earlier)
+        fetch('/me').then(r=>{if(r.status===401)window.location.href='/index.html';return r.json()});
+        window.addEventListener('load',()=>{const b=document.createElement('button');b.innerText="Logout";b.onclick=()=>window.location.href='/logout';Object.assign(b.style,{position:'fixed',top:'20px',right:'20px',background:'transparent',color:'rgba(255,255,255,0.5)',border:'1px solid rgba(255,255,255,0.3)',padding:'5px 15px',borderRadius:'20px',cursor:'pointer',zIndex:1000});document.body.appendChild(b);});
+
+        let myLoc = null;
+        window.onload = () => enforceLocation(
+            (l) => { myLoc=l; document.getElementById('guard').style.display='none'; document.getElementById('main-ui').style.opacity='1'; document.getElementById('main-ui').style.pointerEvents='auto'; },
+            () => { document.querySelector('#guard h2').innerText="Location Required"; document.getElementById('perm-btn').style.display='block'; }
+        );
+        function send() {
+            sendLove(myLoc); 
+            const v=document.getElementById('vid'); const sv=document.getElementById('sv');
+            v.style.display='flex'; sv.currentTime=0; sv.play();
+            sv.onended=()=>{ v.style.display='none'; alert("Your heartbeat has reached them."); };
+        }
+    </script>
+</body>
+</html>

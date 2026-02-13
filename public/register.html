@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pulse | Register</title>
+    <style>
+        body { margin:0; height:100vh; overflow:hidden; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; color:white; background: radial-gradient(circle at top, #2b1055 0%, #7597de 100%); }
+        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; opacity:0.4; }
+        
+        .card { position: relative; width: 320px; padding: 40px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+
+        h2 { font-weight: 300; letter-spacing: 2px; margin-bottom: 30px; }
+
+        input, select { width: 100%; padding: 12px; margin: 8px 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: white; outline: none; box-sizing: border-box; }
+        select { color: #ccc; } 
+        select option { background: #333; }
+        
+        button { width: 100%; padding: 12px; margin-top: 20px; background: #e94560; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(233, 69, 96, 0.4); }
+        button:hover { background: #ff6b81; transform: scale(1.02); }
+
+        .error { color: #ff6b6b; font-size: 0.8em; margin-top: 10px; display: none; }
+        a { color: rgba(255,255,255,0.7); font-size: 0.9em; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+    <div class="card">
+        <h2>Join the Cosmos</h2>
+        <form onsubmit="reg(event)">
+            <input type="text" id="fn" placeholder="Full Name" required>
+            <input type="text" id="u" placeholder="Username" required>
+            <input type="password" id="p" placeholder="Password" required>
+            <select id="g">
+                <option value="male">I am Him (Male)</option>
+                <option value="female">I am Her (Female)</option>
+            </select>
+            <button>INITIALIZE SOUL</button>
+            <div id="err" class="error"></div>
+            <p style="margin-top:20px"><a href="index.html">Already connected? Login</a></p>
+        </form>
+    </div>
+
+    <script>
+        async function reg(e) {
+            e.preventDefault();
+            const errDiv = document.getElementById('err');
+            errDiv.style.display = 'none';
+
+            const res = await fetch('/register', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    fullName:document.getElementById('fn').value,
+                    username:document.getElementById('u').value,
+                    password:document.getElementById('p').value,
+                    gender:document.getElementById('g').value
+                })
+            });
+            const d = await res.json();
+            if(d.success) {
+                alert("Soul Registered.");
+                window.location.href='index.html';
+            } else {
+                errDiv.innerText = d.message;
+                errDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

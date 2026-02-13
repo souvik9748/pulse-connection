@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pulse | Link</title>
+    <style>
+        body { margin:0; height:100vh; background:#0f0c29; color:white; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; text-align:center; overflow:hidden; }
+        
+        /* Background Pulse */
+        .bg-pulse { position:absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(77,124,255,0.1) 0%, rgba(0,0,0,0) 70%); border-radius: 50%; animation: pulseBg 4s infinite; z-index:0; }
+        @keyframes pulseBg { 0%,100%{transform:scale(1); opacity:0.5;} 50%{transform:scale(1.2); opacity:0.2;} }
+
+        .card { position:relative; z-index:1; width: 340px; padding: 40px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; }
+        
+        h1 { margin:0 0 10px; font-weight:300; letter-spacing:2px; }
+        p { color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 0.9em; }
+
+        input { width: 100%; padding: 15px; margin-bottom: 20px; background: #1a1a2e; border: 1px solid #333; color: white; border-radius: 8px; text-align: center; font-size: 1.1em; outline:none; }
+        input:focus { border-color: #e94560; }
+
+        button { width: 100%; padding: 15px; border-radius: 8px; border:none; color:white; font-weight:bold; cursor:pointer; transition:0.3s; font-size:1em; }
+        .btn-connect { background: #e94560; box-shadow: 0 0 15px rgba(233,69,96,0.3); }
+        .btn-check { background: #4d7cff; box-shadow: 0 0 15px rgba(77,124,255,0.3); }
+        button:hover { transform: scale(1.05); }
+
+        /* Loader Animation */
+        .orbit { margin: 30px auto; width: 50px; height: 50px; border: 2px solid rgba(255,255,255,0.1); border-radius: 50%; border-top-color: #4d7cff; animation: spin 1s infinite linear; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+    <div class="bg-pulse"></div>
+
+    <div id="input-state" class="card" style="display:none;">
+        <h1>Find Your Echo</h1>
+        <p>Enter their username to create a link.</p>
+        <input type="text" id="partner" placeholder="Partner's Username">
+        <button class="btn-connect" onclick="pair()">Initiate Link</button>
+    </div>
+
+    <div id="waiting-state" class="card" style="display:none;">
+        <h1>Signal Sent</h1>
+        <div class="orbit"></div>
+        <p>Waiting for them to link back...</p>
+        <button class="btn-check" onclick="checkStatus()">Check Connection</button>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search); 
+        if(urlParams.get('status') === 'waiting') {
+            document.getElementById('waiting-state').style.display = 'block';
+        } else {
+            document.getElementById('input-state').style.display = 'block';
+        }
+
+        async function pair() {
+            const me = localStorage.getItem('pulse_user');
+            const partner = document.getElementById('partner').value;
+            if(!partner) return alert("Enter a username");
+            
+            const res = await fetch('/pair', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({ myUsername:me, partnerUsername:partner })
+            });
+            const d = await res.json();
+            if(d.status === 'connected') window.location.href = d.redirect;
+            else if (d.status === 'waiting') {
+                document.getElementById('input-state').style.display = 'none';
+                document.getElementById('waiting-state').style.display = 'block';
+            } else alert(d.message);
+        }
+
+        async function checkStatus() {
+            const me = localStorage.getItem('pulse_user');
+            const res = await fetch('/status', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username: me }) });
+            const d = await res.json();
+            if (d.status === 'connected') window.location.href = d.redirect;
+            else alert("Still waiting for the signal...");
+        }
+    </script>
+</body>
+</html>

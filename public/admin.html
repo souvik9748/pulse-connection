@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pulse | Admin</title>
+    <style>
+        body { background:#0d1117; color:#c9d1d9; font-family:'Segoe UI', sans-serif; padding:40px; }
+        
+        /* Header */
+        h1 { margin-bottom: 30px; border-bottom: 1px solid #30363d; padding-bottom: 20px; color: #58a6ff; font-weight: 300; letter-spacing: 1px; }
+        h2 { margin-top: 50px; color: #8b949e; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Filter Card */
+        .card { background:#161b22; border: 1px solid #30363d; border-radius: 6px; padding: 20px; margin-bottom: 30px; display:flex; gap:15px; align-items:center; }
+        label { font-weight:bold; color:#f0f6fc; }
+        
+        /* Inputs */
+        select, input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; outline:none; }
+        button { background: #238636; color: white; border: 1px solid rgba(27,31,35,0.15); padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #2ea043; }
+        button.secondary { background: #1f6feb; }
+        button.secondary:hover { background: #388bfd; }
+
+        /* Tables */
+        table { width:100%; border-collapse:collapse; margin-top:15px; background:#161b22; border-radius:6px; overflow:hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        th { background: #21262d; text-align: left; padding: 15px; color: #8b949e; font-size: 0.85em; text-transform: uppercase; }
+        td { padding: 15px; border-top: 1px solid #30363d; font-size: 0.95em; }
+        tr:hover td { background: #21262d; }
+        
+        a { color: #58a6ff; text-decoration:none; }
+        a:hover { text-decoration:underline; }
+
+        /* Badges */
+        .badge { background: #1f6feb; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.8em; font-weight: bold; }
+        
+        /* DB Viewer */
+        .db-box { margin-top: 50px; border-top: 1px solid #30363d; padding-top: 20px; }
+        #json-viewer { background: #010409; padding: 20px; border-radius: 6px; overflow: auto; max-height: 400px; font-family: 'Consolas', monospace; color: #79c0ff; border: 1px solid #30363d; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Pulse Monitor</h1>
+
+    <div class="card">
+        <label>Filter View:</label>
+        <select id="userList"><option value="">All Users</option></select>
+        <input type="date" id="dateList">
+        <button onclick="applyFilters()">Apply</button>
+        <button class="secondary" onclick="applyFilters()" style="margin-left:auto">Refresh</button>
+    </div>
+
+    <h2>Connection Velocity</h2>
+    <table id="stats-table">
+        <thead><tr><th>User</th><th>Signals Sent</th></tr></thead>
+        <tbody id="stats-body"><tr><td colspan="2">Loading...</td></tr></tbody>
+    </table>
+
+    <h2>Signal Logs</h2>
+    <table id="logs">
+        <thead><tr><th>Time</th><th>Sender</th><th>Receiver</th><th>Message</th><th>Location</th></tr></thead>
+        <tbody id="logs-body"><tr><td colspan="5">Loading...</td></tr></tbody>
+    </table>
+
+    <div class="db-box">
+        <h3>Raw Database Access</h3>
+        <button onclick="viewDB()" style="background:#21262d; border:1px solid #30363d;">Fetch JSON</button>
+        <pre id="json-viewer"></pre>
+    </div>
+
+    <script>
+        // Use the EXACT script from the previous Admin.html provided.
+        // I am just providing the stylistic shell here.
+        let userMap = {}; 
+        fetch('/admin/users').then(r=>r.json()).then(u=>{const s=document.getElementById('userList');u.forEach(x=>{s.innerHTML+=`<option value="${x.username}">${x.fullName}</option>`;userMap[x.username]=x.fullName;});applyFilters();});
+        function applyFilters(){ const u=document.getElementById('userList').value; const d=document.getElementById('dateList').value; loadStats(u,d); loadHistory(u,d); }
+        async function loadStats(u,d){
+            const tb=document.getElementById('stats-body'); tb.innerHTML='<tr><td>...</td></tr>';
+            const r=await fetch(`/admin/history?user=${u}&date=${d}`); const da=await r.json();
+            const c={}; da.forEach(l=>{c[l.sender]=(c[l.sender]||0)+1});
+            const s=Object.entries(c).sort((a,b)=>b[1]-a[1]);
+            let h=''; if(s.length===0)h='<tr><td colspan="2" style="color:#888">No data</td></tr>';
+            else s.forEach(([n,v])=>{ h+=`<tr><td>${userMap[n]||n}</td><td><span class="badge">${v}</span></td></tr>`; });
+            tb.innerHTML=h;
+        }
+        async function loadHistory(u,d){
+            const tb=document.getElementById('logs-body'); tb.innerHTML='<tr><td>...</td></tr>';
+            const r=await fetch(`/admin/history?user=${u}&date=${d}`); const da=await r.json();
+            let h=''; if(da.length===0)h='<tr><td colspan="5" style="color:#888">No logs</td></tr>';
+            else da.forEach(l=>{ 
+                let loc='-'; if(l.location&&l.location.lat) loc=`<a href="https://www.google.com/maps?q=${l.location.lat},${l.location.lng}" target="_blank">Map ↗</a>`;
+                h+=`<tr><td>${new Date(l.timestamp).toLocaleString()}</td><td>${l.sender}</td><td>${l.receiver}</td><td>${l.message}</td><td>${loc}</td></tr>`; 
+            });
+            tb.innerHTML=h;
+        }
+        async function viewDB(){
+            const v=document.getElementById('json-viewer'); v.innerText="Loading...";
+            const r=await fetch('/admin/db'); const d=await r.json();
+            v.innerText=JSON.stringify(d,null,2);
+        }
+    </script>
+</body>
+</html>
