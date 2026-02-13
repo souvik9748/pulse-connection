@@ -12,7 +12,7 @@ const port = process.env.PORT || 3000;
 // --- 1. MONGODB CONNECTION ---
 // On Render, we set this variable in the dashboard.
 // On Localhost, you can replace this string with your Atlas URL for testing.
-const mongoURI = process.env.MONGO_URI || 'mongodb+srv://YOUR_USER:YOUR_PASS@cluster0.mongodb.net/?retryWrites=true&w=majority';
+const mongoURI = process.env.MONGO_URI || 'mongodb+srv://souviksarkarsarkar3_db_user:PEVNYsmH7NlEwIoY@cluster0.btwrhw5.mongodb.net/?appName=Cluster0';
 
 mongoose.connect(mongoURI)
     .then(() => console.log("✅ MongoDB Connected"))
