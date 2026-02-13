@@ -1,22 +1,50 @@
+// REPLACE THIS with your actual Render URL if needed (e.g. https://pulse-app.onrender.com)
+// If deployed, using relative paths like '/subscribe' is fine.
 const publicVapidKey = 'BF5J5oCuArj-V05wynt72pgVjrrwRIVHyz7H1UaU35dSlf3F9_tB4DjIypP68fI-lXDETgr53zocSkDiarcgCIo';
 
-// 1. Register Notifications
+// 1. Register Notifications (Updated for iOS)
 async function registerNotifications() {
     const user = localStorage.getItem('pulse_user');
     if (!user) return;
 
-    if ('serviceWorker' in navigator) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log("Push messaging is not supported");
+        return;
+    }
+
+    try {
+        // STEP A: Ask for permission explicitly
+        // iOS requires this to happen inside a click event (which we do in send())
+        const permission = await Notification.requestPermission();
+        
+        if (permission !== 'granted') {
+            // Optional: Alert user if they blocked it previously
+            // alert("Notifications blocked. Please reset permissions for this app.");
+            return;
+        }
+
+        // STEP B: Register Service Worker
         const register = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        
+        // STEP C: Subscribe
         const subscription = await register.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
         });
 
+        // STEP D: Send to Server
         await fetch('/subscribe', {
             method: 'POST',
             body: JSON.stringify({ username: user, subscription }),
             headers: { 'content-type': 'application/json' }
         });
+
+        console.log("✅ Notifications Active");
+
+    } catch (err) {
+        console.error("❌ Notification Error:", err);
+        // This alert helps debugging on iPhone. Remove it later.
+        alert("Push Error: " + err.message);
     }
 }
 
@@ -34,6 +62,9 @@ function enforceLocation(onSuccess, onError) {
 async function sendLove(locationData) {
     const user = localStorage.getItem('pulse_user');
     if(!locationData) return alert("Location missing. Refresh.");
+
+    // Trigger Notification Setup on every send (just in case it failed before)
+    await registerNotifications();
 
     await fetch('/send-love', {
         method: 'POST',

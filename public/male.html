@@ -73,14 +73,26 @@
             () => { document.querySelector('#guard h2').innerText="Location Required"; document.getElementById('perm-btn').style.display='block'; }
         );
 
-        function send() {
+        async function send() {
+            // 1. Try to register notifications FIRST (iOS requires this click)
+            try {
+                // Check if function exists in client.js, if so, run it
+                if (typeof registerNotifications === "function") {
+                    await registerNotifications();
+                }
+            } catch (err) {
+                console.log("Notification setup skipped or failed:", err);
+            }
+
+            // 2. Proceed with sending love
             sendLove(myLoc); 
+            
             const v=document.getElementById('vid'); const sv=document.getElementById('sv');
             v.style.display='flex'; sv.currentTime=0; sv.play();
             
-            // 3. USE THE PARTNER NAME HERE
             sv.onended=()=>{ 
                 v.style.display='none'; 
+                // Use the partner name variable we set earlier
                 alert(`Your heartbeat has reached ${partnerName}.`); 
             };
         }
