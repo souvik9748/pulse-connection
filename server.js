@@ -344,4 +344,9 @@ app.get('/admin.html', (req, res) => {
     else res.status(403).send("Unauthorized");
 });
 
+// KEEPALIVE ROUTE - Hacky way to keep the deployed server alive
+app.get('/keep-alive', (req, res) => {
+    res.send('Stayin Alive');
+});
+
 app.listen(port, () => console.log(`Pulse running on ${port}`));
