@@ -501,6 +501,11 @@ app.get('/logout', (req, res) => {
     res.redirect('/');
 });
 
+// KEEPALIVE ROUTE - Hacky way to keep the deployed server alive
+app.get('/keep-alive', (req, res) => {
+    res.send('Stayin Alive');
+});
+
 // HTML Serving (Keep manual auth guard)
 const requireAuth = (req, res, next) => {
     if (req.cookies && req.cookies.pulse_user) next();
