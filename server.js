@@ -12,28 +12,29 @@ const ExcelJS = require('exceljs');
 // EMAIL CONFIGURATION
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // false for 587 (uses STARTTLS)
+    port: 465,       // Use the SSL Port (Different door than 587)
+    secure: true,    // MUST be true for port 465
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // ⚠️ CRITICAL NETWORK SETTINGS ⚠️
-    family: 4,              // Force IPv4 (Fixes ENETUNREACH)
+    // ⚠️ FORCE IPv4
+    family: 4,       
     
-    // ⚠️ TLS COMPATIBILITY (Fixes Handshake Hangs)
+    // ⚠️ RELAXED SECURITY (Fixes Handshake Hangs)
     tls: {
-        ciphers: 'SSLv3'    // Helps compatibility with strict firewalls
+        // This tells the server: "Don't hang up if the certificate looks weird"
+        rejectUnauthorized: false 
     },
 
-    // ⚠️ DEBUGGING (This prints the exact conversation to logs)
+    // ⚠️ KEEP LOGGING (So we can see if it works)
     logger: true,
     debug: true,
 
-    // ⚠️ EXTENDED TIMEOUTS
-    connectionTimeout: 30000, // 30 seconds
-    greetingTimeout: 30000,
-    socketTimeout: 30000
+    // ⚠️ TIMEOUTS
+    connectionTimeout: 10000, 
+    greetingTimeout: 5000,
+    socketTimeout: 10000
 });
 
 const app = express();
