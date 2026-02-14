@@ -195,7 +195,11 @@
                     }
 
                     if(window.registerNotifications) await registerNotifications().catch(console.error);
-                    window.location.href = d.redirect;
+                    if (d.status) {
+                        window.location.href = `${d.redirect}?status=${d.status}`;
+                    } else {
+                        window.location.href = d.redirect;
+                    }
                 } else {
                     alert(d.message);
                     btn.innerHTML = originalText;

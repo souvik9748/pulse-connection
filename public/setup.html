@@ -135,11 +135,35 @@
     </div>
 
     <script>
-        // Check URL or LocalStorage to determine state
-        window.onload = () => {
+        // GLOBAL VARIABLE to store the confirmed username
+        let currentUser = null;
+
+        window.onload = async () => {
+            // 1. Ask the server who we are (Source of Truth)
+            try {
+                // Use BASE_URL if defined (for mobile), otherwise relative path
+                const url = (typeof BASE_URL !== 'undefined' && BASE_URL) ? `${BASE_URL}/me` : '/me';
+                const res = await fetch(url);
+                
+                if(res.status === 401) {
+                    window.location.href = 'index.html'; // Not logged in? Kick out.
+                    return;
+                }
+                
+                const data = await res.json();
+                
+                if (data.user) {
+                    console.log("✅ Verified Identity:", data.user);
+                    currentUser = data.user; 
+                    // Heal LocalStorage if it was broken
+                    localStorage.setItem('pulse_user', data.user); 
+                }
+            } catch (err) {
+                console.error("Identity Check Failed", err);
+            }
+
+            // 2. Handle UI State (Waiting vs Input)
             const urlParams = new URLSearchParams(window.location.search); 
-            // Also check if we already have a 'waiting' status saved (optional enhancement)
-            
             if(urlParams.get('status') === 'waiting') {
                 document.getElementById('input-state').style.display = 'none';
                 document.getElementById('waiting-state').style.display = 'block';
@@ -150,16 +174,17 @@
         };
 
         async function pair() {
-            const me = localStorage.getItem('pulse_user');
+            // USE THE VERIFIED SERVER USERNAME
+            const me = currentUser || localStorage.getItem('pulse_user');
             const partner = document.getElementById('partner').value;
             const btn = document.querySelector('.btn-connect');
             
+            if(!me) return alert("Session Error. Please Logout and Login again.");
             if(!partner) return alert("Please enter a username");
             
             btn.innerHTML = "TRANSMITTING...";
             
             try {
-                // Use BASE_URL if defined
                 const url = (typeof BASE_URL !== 'undefined' && BASE_URL) ? `${BASE_URL}/pair` : '/pair';
 
                 const res = await fetch(url, {
@@ -171,6 +196,11 @@
                 if(d.status === 'connected') {
                     window.location.href = d.redirect;
                 } else if (d.status === 'waiting') {
+                    // Update URL to reflect waiting state
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('status', 'waiting');
+                    window.history.pushState({}, '', newUrl);
+                    
                     document.getElementById('input-state').style.display = 'none';
                     document.getElementById('waiting-state').style.display = 'block';
                 } else {
@@ -184,7 +214,7 @@
         }
 
         async function checkStatus() {
-            const me = localStorage.getItem('pulse_user');
+            const me = currentUser || localStorage.getItem('pulse_user');
             const btn = document.querySelector('.btn-check');
             const originalText = btn.innerHTML;
             
@@ -203,7 +233,6 @@
                 if (d.status === 'connected') {
                     window.location.href = d.redirect;
                 } else {
-                    // Just a subtle feedback that we checked
                     setTimeout(() => { btn.innerHTML = originalText; }, 500);
                 }
             } catch (e) {

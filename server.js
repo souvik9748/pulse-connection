@@ -86,7 +86,7 @@ app.post('/login', async (req, res) => {
     const lowerUser = username.toLowerCase();
     
     // Admin check...
-    if(lowerUser === 'admin' && password === (process.env.ADMIN_PASSWORD || 'admin')) {
+    if(lowerUser === 'admin' && password === (process.env.ADMIN_PASSWORD)) {
         res.cookie('pulse_user', 'admin', { httpOnly: true });
         return res.json({ success: true, redirect: '/admin.html' });
     }
@@ -99,25 +99,76 @@ app.post('/login', async (req, res) => {
         const partner = await User.findById(user.partnerId);
         if (partner && partner.partnerId && partner.partnerId.equals(user._id)) {
             const page = user.gender === 'male' ? '/male.html' : '/female.html';
-            return res.json({ success: true, redirect: page });
+            // [FIX] Added userId: user._id
+            return res.json({ success: true, redirect: page, userId: user._id, username: user.username });
         } else {
-            return res.json({ success: true, redirect: '/setup.html', status: 'waiting' });
+            // [FIX] Added userId: user._id
+            return res.json({ success: true, redirect: '/setup.html', status: 'waiting', userId: user._id, username: user.username });
         }
     } else {
         res.json({ success: false, message: "Invalid credentials" });
     }
 });
 
+// QUICK LOGIN (Remember Me)
+app.post('/quick-login', async (req, res) => {
+    const { username, userId } = req.body;
+
+    try {
+        // Verify the user exists with this specific ID
+        const user = await User.findOne({ username: username, _id: userId });
+
+        if (user) {
+            // Refresh the session cookie
+            res.cookie('pulse_user', user.username, { 
+                maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+                httpOnly: true,
+                sameSite: 'strict'
+            });
+            
+            // Redirect based on Gender
+            const page = user.gender === 'male' ? '/male.html' : '/female.html';
+            return res.json({ success: true, redirect: page });
+        } else {
+            return res.json({ success: false, message: "Invalid saved login." });
+        }
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false });
+    }
+});
+
 app.post('/pair', async (req, res) => {
     const { myUsername, partnerUsername } = req.body;
+
+    // 1. Input Validation
+    if (!myUsername || !partnerUsername) {
+        return res.json({ success: false, message: "Missing username." });
+    }
+
     const me = await User.findOne({ username: myUsername.toLowerCase() });
     const partner = await User.findOne({ username: partnerUsername.toLowerCase() });
 
-    if (!partner) return res.json({ success: false, message: "User not found" });
+    // --- CRASH FIX: Check if 'me' exists before using it ---
+    if (!me) {
+        // This handles the error you saw.
+        // It likely means your database was cleared but your browser is still logged in.
+        return res.json({ success: false, message: "Your account was not found. Please Register again." });
+    }
+
+    if (!partner) {
+        return res.json({ success: false, message: "Partner username not found." });
+    }
+
+    if (me.username === partner.username) {
+        return res.json({ success: false, message: "Cannot pair with yourself." });
+    }
     
+    // Update My Partner ID
     me.partnerId = partner._id;
     await me.save();
 
+    // Check Mutual Connection
     if (partner.partnerId && partner.partnerId.equals(me._id)) {
         const page = me.gender === 'male' ? '/male.html' : '/female.html';
         res.json({ success: true, status: 'connected', redirect: page });
@@ -240,6 +291,80 @@ app.post('/send-love', async (req, res) => {
     res.json({ success: true });
 });
 
+// --- MISSING HELPER ROUTES ---
+
+// 1. STATUS CHECK (For Setup Page Auto-Redirect)
+app.post('/status', async (req, res) => {
+    const user = await User.findOne({ username: req.body.username.toLowerCase() });
+    
+    if (user && user.partnerId) {
+        const partner = await User.findById(user.partnerId);
+        // Check if partner has connected back
+        if (partner && partner.partnerId && partner.partnerId.equals(user._id)) {
+            const page = user.gender === 'male' ? '/male.html' : '/female.html';
+            return res.json({ status: 'connected', redirect: page });
+        }
+    }
+    res.json({ status: 'waiting' });
+});
+
+// 2. WIDGET API (For iOS Scriptable Widget)
+app.get('/api/widget/:username', async (req, res) => {
+    const username = req.params.username.toLowerCase();
+    
+    const user = await User.findOne({ username });
+    if (!user || !user.partnerId) return res.json({ text: "No Link" });
+
+    const partner = await User.findById(user.partnerId);
+    if (!partner) return res.json({ text: "No Partner" });
+
+    const lastLog = await History.findOne({ 
+        sender: partner.username, 
+        receiver: user.username 
+    }).sort({ timestamp: -1 });
+
+    if (!lastLog) return res.json({ text: "Waiting..." });
+
+    const now = new Date();
+    const diff = Math.floor((now - lastLog.timestamp) / 60000); 
+    
+    let timeText = `${diff}m ago`;
+    if (diff > 60) timeText = `${Math.floor(diff/60)}h ago`;
+    if (diff > 1440) timeText = `${Math.floor(diff/1440)}d ago`;
+
+    res.json({ 
+        text: `❤️ from ${partner.fullName || partner.username}`, 
+        time: timeText 
+    });
+});
+
+// 3. ADMIN DATA (For Admin Dashboard)
+app.get('/admin/users', async (req, res) => {
+    const users = await User.find({ username: { $ne: 'admin' } });
+    res.json(users);
+});
+
+app.get('/admin/history', async (req, res) => {
+    const { user, date } = req.query;
+    let query = {};
+    if (user) { query.$or = [{ sender: user }, { receiver: user }]; }
+    if (date) {
+        const start = new Date(date);
+        const end = new Date(date);
+        end.setDate(end.getDate() + 1);
+        query.timestamp = { $gte: start, $lt: end };
+    }
+    const logs = await History.find(query).sort({ timestamp: -1 });
+    res.json(logs);
+});
+
+app.get('/admin/db', async (req, res) => {
+    const users = await User.find({});
+    const subs = await Subscription.find({});
+    const history = await History.find({});
+    res.json({ users, subs, history });
+});
+
 // --- 7. OTHER ROUTES ---
 app.get('/me', async (req, res) => {
     if (!req.cookies.pulse_user) return res.status(401).json({ user: null });
@@ -268,5 +393,10 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html'
 app.get('/male.html', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public/male.html')));
 app.get('/female.html', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public/female.html')));
 app.get('/setup.html', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public/setup.html')));
+// Add this line so the Admin HTML file can actually load
+app.get('/admin.html', (req, res) => {
+    if(req.cookies.pulse_user === 'admin') res.sendFile(path.join(__dirname, 'public/admin.html'));
+    else res.status(403).send("Unauthorized");
+});
 
 app.listen(port, () => console.log(`Pulse running on ${port}`));

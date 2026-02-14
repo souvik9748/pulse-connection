@@ -162,8 +162,61 @@
                 if(data.partnerName) partnerName = data.partnerName;
             });
 
-        // 3. Logout Button Logic
-        window.addEventListener('load',()=>{const b=document.createElement('button');b.innerText="Logout";b.onclick=()=>window.location.href='/logout';Object.assign(b.style,{position:'fixed',top:'20px',right:'20px',background:'transparent',color:'rgba(255,255,255,0.5)',border:'1px solid rgba(255,255,255,0.3)',padding:'5px 15px',borderRadius:'20px',cursor:'pointer',zIndex:1000});document.body.appendChild(b);});
+        // SMART RESPONSIVE LOGOUT BUTTON
+        window.addEventListener('load', () => {
+            const b = document.createElement('button');
+            b.innerHTML = "LOGOUT"; 
+            b.onclick = () => {
+                if(confirm("Disconnect from current session?")) {
+                    // Checks for BASE_URL (from client.js) to support Mobile Apps
+                    const url = (typeof BASE_URL !== 'undefined' && BASE_URL) ? `${BASE_URL}/logout` : '/logout';
+                    window.location.href = url;
+                }
+            };
+            
+            // Check if we are on a small screen (Mobile)
+            const isMobile = window.innerWidth < 768;
+
+            Object.assign(b.style, {
+                position: 'fixed',
+                
+                // SMART POSITIONING:
+                // On Mobile: It checks for the "Notch" (safe-area). If no notch, it defaults to 20px.
+                // On Desktop: It stays at 25px.
+                top: isMobile ? 'max(20px, env(safe-area-inset-top) + 10px)' : '25px',
+                right: isMobile ? '20px' : '25px',
+                
+                // RESPONSIVE SIZING:
+                // Smaller padding and font on mobile to look cleaner
+                padding: isMobile ? '6px 14px' : '8px 18px',
+                fontSize: isMobile ? '0.65rem' : '0.75rem',
+                
+                // Universal Styles
+                background: 'rgba(0, 0, 0, 0.3)',
+                color: 'rgba(255, 255, 255, 0.6)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                letterSpacing: '2px',
+                backdropFilter: 'blur(5px)',
+                zIndex: 1000,
+                transition: 'all 0.3s ease'
+            });
+
+            // Hover Effect (Only for Desktop really, but good to have)
+            b.onmouseenter = () => {
+                b.style.background = 'rgba(255, 255, 255, 0.1)';
+                b.style.color = '#fff';
+                b.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+            };
+            b.onmouseleave = () => {
+                b.style.background = 'rgba(0, 0, 0, 0.3)';
+                b.style.color = 'rgba(255, 255, 255, 0.6)';
+                b.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            };
+
+            document.body.appendChild(b);
+        });
 
         let myLoc = null;
         window.onload = () => enforceLocation(
