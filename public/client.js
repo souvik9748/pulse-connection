@@ -1,8 +1,11 @@
-// REPLACE THIS with your actual Render URL if needed (e.g. https://pulse-app.onrender.com)
-// If deployed, using relative paths like '/subscribe' is fine.
+// CONFIGURATION
+// If building for mobile (Capacitor), change this to your full Render URL (e.g. 'https://yourapp.onrender.com')
+// For Web/PWA, leave it empty to use relative paths.
+const BASE_URL = ''; 
+
 const publicVapidKey = 'BF5J5oCuArj-V05wynt72pgVjrrwRIVHyz7H1UaU35dSlf3F9_tB4DjIypP68fI-lXDETgr53zocSkDiarcgCIo';
 
-// 1. Register Notifications (Updated for iOS)
+// --- 1. NOTIFICATIONS (Robust iOS/Android Logic) ---
 async function registerNotifications() {
     const user = localStorage.getItem('pulse_user');
     if (!user) return;
@@ -13,44 +16,40 @@ async function registerNotifications() {
     }
 
     try {
-        // 1. Permission Check
+        // A. Permission Check
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') return;
 
-        // 2. Register SW
+        // B. Register SW
         const register = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
 
         let subscription;
 
-        // 3. Try to Subscribe
+        // C. Try to Subscribe
         try {
             subscription = await register.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
             });
         } catch (err) {
-            // ⚠️ FIX: If Key Mismatch Error, Unsubscribe and Retry
+            // ⚠️ FIX: If Key Mismatch (Old vs New), Unsubscribe and Retry
             if (err.message.includes('applicationServerKey') || err.message.includes('gcm_sender_id')) {
                 console.warn("Old key detected. Resetting subscription...");
                 
-                // A. Get the old broken subscription
                 const oldSub = await register.pushManager.getSubscription();
-                if (oldSub) { 
-                    await oldSub.unsubscribe(); 
-                }
+                if (oldSub) { await oldSub.unsubscribe(); }
 
-                // B. Try subscribing again with new key
                 subscription = await register.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
                 });
             } else {
-                throw err; // If it's a different error, stop here
+                throw err; 
             }
         }
 
-        // 4. Send to Server
-        await fetch('/subscribe', {
+        // D. Send to Server
+        await fetch(`${BASE_URL}/subscribe`, {
             method: 'POST',
             body: JSON.stringify({ username: user, subscription }),
             headers: { 'content-type': 'application/json' }
@@ -60,11 +59,12 @@ async function registerNotifications() {
 
     } catch (err) {
         console.error("❌ Notification Error:", err);
-        alert("Push Setup Failed: " + err.message); // Debug Alert
+        // Alert only for debugging, you can comment this out in production
+        // alert("Push Setup Failed: " + err.message); 
     }
 }
 
-// 2. Strict Location Guard
+// --- 2. LOCATION GUARD ---
 function enforceLocation(onSuccess, onError) {
     if (!navigator.geolocation) { onError("Browser Not Supported"); return; }
     navigator.geolocation.getCurrentPosition(
@@ -74,22 +74,70 @@ function enforceLocation(onSuccess, onError) {
     );
 }
 
-// 3. Send Logic
+// --- 3. SEND LOVE ---
 async function sendLove(locationData) {
     const user = localStorage.getItem('pulse_user');
     if(!locationData) return alert("Location missing. Refresh.");
 
-    // Trigger Notification Setup on every send (just in case it failed before)
+    // Trigger Notification Setup on every send (ensures iOS permission)
     await registerNotifications();
 
-    await fetch('/send-love', {
+    await fetch(`${BASE_URL}/send-love`, {
         method: 'POST',
         body: JSON.stringify({ senderUsername: user, location: locationData }),
         headers: { 'content-type': 'application/json' }
     });
 }
 
-// Helper
+// --- 4. QUICK LOGIN / REMEMBER ME ---
+
+// Save a successful login to the device
+function saveLoginToDevice(username, userId) {
+    let accounts = JSON.parse(localStorage.getItem('pulse_accounts') || '[]');
+    
+    // Remove if already exists (avoid duplicates)
+    accounts = accounts.filter(a => a.username !== username);
+    
+    // Add to top of list
+    accounts.unshift({ username, userId, lastLogin: Date.now() });
+    
+    localStorage.setItem('pulse_accounts', JSON.stringify(accounts));
+}
+
+// Get list of saved accounts
+function getSavedAccounts() {
+    return JSON.parse(localStorage.getItem('pulse_accounts') || '[]');
+}
+
+// Perform the Quick Login
+async function quickLogin(username, userId) {
+    try {
+        const res = await fetch(`${BASE_URL}/quick-login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, userId })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            alert("Session expired. Please log in again.");
+            removeAccount(username);
+        }
+    } catch (err) {
+        console.error("Quick login error", err);
+    }
+}
+
+// Remove an account from the list
+function removeAccount(username) {
+    let accounts = getSavedAccounts().filter(a => a.username !== username);
+    localStorage.setItem('pulse_accounts', JSON.stringify(accounts));
+    location.reload(); 
+}
+
+// --- HELPER ---
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');

@@ -2,70 +2,210 @@
 <html>
 <head>
     <title>Pulse | Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="client.js"></script>
     <style>
-        /* COSMIC THEME */
-        body { margin:0; height:100vh; overflow:hidden; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; color:white; background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%); }
-        
-        /* Stars Background Animation */
-        .stars { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; background-image: radial-gradient(white 1px, transparent 1px), radial-gradient(white 1px, transparent 1px); background-size: 50px 50px; background-position: 0 0, 25px 25px; opacity: 0.3; animation: spaceTime 60s linear infinite; }
-        @keyframes spaceTime { from {transform: scale(1);} to {transform: scale(1.5);} }
+        /* THEME: The Event Horizon */
+        body { margin:0; height:100vh; overflow:hidden; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; background: #000; color:white; }
 
-        /* Glass Card */
-        .card { position: relative; width: 320px; padding: 40px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); text-align: center; z-index: 10; }
+        /* Layer 1: Deep Space Gradient */
+        .void-bg { position:fixed; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle at center, #1a1a2e 0%, #050505 100%); z-index: 0; }
+
+        /* Layer 2: Starfield (Matches internal pages) */
+        .stars { position:absolute; width:100%; height:100%; background: url('https://www.transparenttextures.com/patterns/stardust.png'); opacity:0.3; animation: moveStars 100s linear infinite; z-index: 1; pointer-events: none; }
+        @keyframes moveStars { from{background-position:0 0;} to{background-position:100px 100px;} }
+
+        /* Layer 3: The Rotating Eclipse (The "Surprise" Ambient Light) */
+        .eclipse {
+            position: absolute; width: 600px; height: 600px;
+            background: conic-gradient(from 0deg, transparent 0%, #4d7cff 40%, transparent 60%, #e94560 90%, transparent 100%);
+            border-radius: 50%; opacity: 0.15; filter: blur(60px);
+            animation: rotateGalaxy 20s linear infinite;
+            z-index: 2;
+        }
+        @keyframes rotateGalaxy { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
+
+        /* Layer 4: The Glass Interface */
+        .card { 
+            position: relative; width: 320px; padding: 45px 35px; 
+            background: rgba(20, 20, 30, 0.6); 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            border-top: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6); 
+            text-align: center; z-index: 10; 
+            overflow: hidden;
+        }
+
+        /* Shine effect on card */
+        .card::before {
+            content:''; position: absolute; top:-50%; left:-50%; width:200%; height:200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 60%);
+            pointer-events: none;
+        }
         
         /* Typography */
-        h1 { margin: 0 0 10px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; background: linear-gradient(to right, #fff, #a29bfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .line { width: 50px; height: 2px; background: #e94560; margin: 0 auto 30px; box-shadow: 0 0 10px #e94560; }
+        h1 { 
+            margin: 0 0 15px; font-weight: 200; font-size: 2.5em; letter-spacing: 6px; text-transform: uppercase; 
+            background: linear-gradient(to right, #a2d9ff, #fff, #ffc3d0); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+            animation: breatheText 4s ease-in-out infinite;
+        }
+        @keyframes breatheText { 0%, 100% {letter-spacing: 6px; opacity: 0.9;} 50% {letter-spacing: 8px; opacity: 1;} }
 
-        /* Inputs */
-        input { width: 100%; padding: 12px; margin: 10px 0; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; transition: 0.3s; box-sizing: border-box; }
-        input:focus { border-color: #a29bfe; box-shadow: 0 0 10px rgba(162, 155, 254, 0.3); }
+        .line { width: 40px; height: 1px; background: linear-gradient(90deg, transparent, #fff, transparent); margin: 0 auto 35px; opacity: 0.5; }
 
-        /* Button */
-        button { width: 100%; padding: 12px; margin-top: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; letter-spacing: 1px; }
-        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4); }
+        /* Modern Inputs */
+        input { 
+            width: 100%; padding: 14px; margin: 8px 0; 
+            background: rgba(0,0,0,0.4); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 12px; color: white; outline: none; 
+            transition: 0.3s; box-sizing: border-box; font-size: 0.95em;
+        }
+        input:focus { border-color: #a29bfe; background: rgba(0,0,0,0.6); box-shadow: 0 0 15px rgba(162, 155, 254, 0.1); }
+        input::placeholder { color: rgba(255,255,255,0.3); }
 
-        /* Links */
-        a { color: rgba(255,255,255,0.6); text-decoration: none; font-size: 0.9em; transition: 0.3s; }
+        /* The "Portal" Button */
+        button { 
+            width: 100%; padding: 14px; margin-top: 25px; 
+            background: linear-gradient(135deg, #4d7cff 0%, #e94560 100%); 
+            background-size: 200% 200%;
+            border: none; border-radius: 12px; color: white; 
+            font-weight: 600; font-size: 1em; letter-spacing: 2px;
+            cursor: pointer; transition: 0.4s; 
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.2);
+            animation: gradientShift 5s ease infinite;
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(77, 124, 255, 0.3); letter-spacing: 3px; }
+        @keyframes gradientShift { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
+
+        /* Quick Login Items */
+        .account-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px; margin: 10px 0;
+            border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; border: 1px solid rgba(255,255,255,0.05);
+            transition: 0.3s;
+        }
+        .account-item:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: scale(1.02); }
+        .user-name { font-weight: 600; letter-spacing: 1px; text-transform: uppercase; font-size: 0.9em; color: #fff; }
+        .remove-btn { opacity: 0.3; font-size: 1.2em; padding: 0 10px; transition: 0.2s; }
+        .remove-btn:hover { opacity: 1; color: #e94560; }
+
+        .secondary-btn { background: transparent !important; border: 1px solid rgba(255,255,255,0.2) !important; box-shadow: none !important; margin-top: 15px; font-size: 0.75em; letter-spacing: 1px; animation: none !important; }
+        .secondary-btn:hover { background: rgba(255,255,255,0.1) !important; transform: none; }
+        
+        a { color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.8em; transition: 0.3s; }
         a:hover { color: white; }
     </style>
 </head>
 <body>
+    <div class="void-bg"></div>
     <div class="stars"></div>
+    <div class="eclipse"></div>
+
     <div class="card">
         <h1>Pulse</h1>
         <div class="line"></div>
-        <input type="text" id="u" placeholder="Username" autocomplete="off">
-        <input type="password" id="p" placeholder="Password">
-        <button onclick="login()">ENTER VOID</button>
-        <p style="margin-top:20px;"><a href="register.html">Create a Soul ID</a></p>
+
+        <div id="quick-login-area" style="display:none;">
+            <p style="opacity:0.6; font-size:0.75em; margin-bottom:20px; text-transform: uppercase; letter-spacing: 2px;">Identification</p>
+            <div id="account-list"></div>
+            <button class="secondary-btn" onclick="showLoginForm()">LOG IN TO ANOTHER ACCOUNT</button>
+        </div>
+
+        <div id="standard-login-form">
+            <input type="text" id="u" placeholder="Username" autocomplete="off">
+            <input type="password" id="p" placeholder="Password">
+            <button id="login-btn" onclick="login()">ENTER VOID</button>
+            <p style="margin-top:25px;"><a href="register.html">INITIATE NEW LINK</a></p>
+        </div>
     </div>
 
     <script>
+        // --- CHECK FOR SAVED ACCOUNTS ON LOAD ---
+        window.onload = () => {
+            if (typeof getSavedAccounts === 'function') {
+                const accounts = getSavedAccounts(); // From client.js
+                if (accounts.length > 0) {
+                    document.getElementById('quick-login-area').style.display = 'block';
+                    document.getElementById('standard-login-form').style.display = 'none';
+                    renderAccountList(accounts);
+                }
+            }
+        };
+
+        // --- RENDER LIST ---
+        function renderAccountList(accounts) {
+            const list = document.getElementById('account-list');
+            list.innerHTML = '';
+            accounts.forEach(acc => {
+                const div = document.createElement('div');
+                div.className = 'account-item';
+                div.onclick = () => {
+                    div.style.opacity = "0.5";
+                    div.style.pointerEvents = "none";
+                    quickLogin(acc.username, acc.userId); // From client.js
+                };
+                
+                div.innerHTML = `
+                    <span class="user-name">${acc.username}</span>
+                    <span class="remove-btn" onclick="event.stopPropagation(); removeAccount('${acc.username}')">&times;</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // --- SWITCH VIEW ---
+        function showLoginForm() {
+            document.getElementById('quick-login-area').style.display = 'none';
+            document.getElementById('standard-login-form').style.display = 'block';
+        }
+
+        // --- LOGIN FUNCTION ---
         async function login() {
             const u = document.getElementById('u').value;
             const p = document.getElementById('p').value;
             if(!u || !p) return alert("Please fill in all fields");
             
-            const btn = document.querySelector('button');
-            btn.innerHTML = "CONNECTING...";
+            const btn = document.getElementById('login-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "SYNCING...";
+            btn.style.opacity = "0.7";
             
             try {
-                const res = await fetch('/login', {
+                // Determine URL (Mobile vs Web)
+                const url = (typeof BASE_URL !== 'undefined' && BASE_URL) ? `${BASE_URL}/login` : '/login';
+
+                const res = await fetch(url, {
                     method:'POST', headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({ username:u, password:p })
                 });
                 const d = await res.json();
+                
                 if(d.success) {
                     localStorage.setItem('pulse_user', d.username);
+                    
+                    // SAVE LOGIN TO DEVICE
+                    if(d.userId && typeof saveLoginToDevice === 'function') {
+                        saveLoginToDevice(d.username, d.userId);
+                    }
+
                     if(window.registerNotifications) await registerNotifications().catch(console.error);
                     window.location.href = d.redirect;
                 } else {
                     alert(d.message);
-                    btn.innerHTML = "ENTER VOID";
+                    btn.innerHTML = originalText;
+                    btn.style.opacity = "1";
                 }
-            } catch(e) { alert("Server Offline"); btn.innerHTML = "ENTER VOID"; }
+            } catch(e) { 
+                alert("Server Offline"); 
+                btn.innerHTML = originalText; 
+                btn.style.opacity = "1";
+            }
         }
     </script>
 </body>

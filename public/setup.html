@@ -2,80 +2,214 @@
 <html>
 <head>
     <title>Pulse | Link</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="client.js"></script>
     <style>
-        body { margin:0; height:100vh; background:#0f0c29; color:white; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; text-align:center; overflow:hidden; }
+        /* THEME: The Orbital Link */
+        body { margin:0; height:100vh; overflow:hidden; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; background: #000; color:white; }
+
+        /* Layer 1: Deep Space */
+        .void-bg { position:fixed; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle at center, #10101a 0%, #000000 100%); z-index: 0; }
+
+        /* Layer 2: Moving Stars */
+        .stars { position:absolute; width:100%; height:100%; background: url('https://www.transparenttextures.com/patterns/stardust.png'); opacity:0.3; animation: moveStars 100s linear infinite; z-index: 1; pointer-events: none; }
+        @keyframes moveStars { from{background-position:0 0;} to{background-position:100px 100px;} }
+
+        /* Layer 3: The Orbital Rings (Background Graphic) */
+        .orbit-system {
+            position: absolute; width: 600px; height: 600px;
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 50%;
+            z-index: 2; pointer-events: none;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .orbit-system::before {
+            content:''; position: absolute; width: 400px; height: 400px;
+            border: 1px solid rgba(255,255,255,0.05); border-radius: 50%;
+            border-top-color: rgba(77, 124, 255, 0.3);
+            animation: spin 10s infinite linear;
+        }
+        .orbit-system::after {
+            content:''; position: absolute; width: 200px; height: 200px;
+            border: 1px dashed rgba(255,255,255,0.1); border-radius: 50%;
+            animation: spin 20s infinite reverse linear;
+        }
+        @keyframes spin { from{transform: rotate(0deg);} to{transform: rotate(360deg);} }
+
+        /* Layer 4: The Glass Card */
+        .card { 
+            position: relative; width: 320px; padding: 45px 35px; 
+            background: rgba(20, 20, 30, 0.6); 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            border-radius: 24px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6); 
+            text-align: center; z-index: 10; 
+        }
+
+        /* Typography */
+        h1 { 
+            margin: 0 0 10px; font-weight: 200; font-size: 2em; letter-spacing: 4px; text-transform: uppercase; 
+            background: linear-gradient(to right, #a2d9ff, #fff); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+        }
+        p { color: rgba(255,255,255,0.5); font-size: 0.9em; letter-spacing: 1px; margin-bottom: 30px; }
+
+        /* Inputs */
+        input { 
+            width: 100%; padding: 15px; margin-bottom: 25px; 
+            background: rgba(0,0,0,0.3); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 12px; color: white; text-align: center; 
+            font-size: 1.1em; outline: none; transition: 0.3s; 
+            letter-spacing: 1px; font-family: monospace;
+        }
+        input:focus { border-color: #4d7cff; box-shadow: 0 0 20px rgba(77, 124, 255, 0.2); background: rgba(0,0,0,0.5); }
+        input::placeholder { color: rgba(255,255,255,0.2); font-family: 'Segoe UI', sans-serif; letter-spacing: 0; }
+
+        /* Buttons */
+        button { 
+            width: 100%; padding: 15px; border-radius: 12px; border:none; color:white; 
+            font-weight: 600; font-size: 0.95em; letter-spacing: 2px; text-transform: uppercase;
+            cursor:pointer; transition:0.3s; 
+        }
+        .btn-connect { 
+            background: linear-gradient(135deg, #4d7cff 0%, #1a1a2e 100%); 
+            box-shadow: 0 5px 20px rgba(77, 124, 255, 0.2); 
+            border: 1px solid rgba(77, 124, 255, 0.3);
+        }
+        .btn-connect:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(77, 124, 255, 0.4); }
+
+        .btn-check { 
+            background: transparent; 
+            border: 1px solid rgba(255,255,255,0.2); 
+            color: rgba(255,255,255,0.7);
+        }
+        .btn-check:hover { background: rgba(255,255,255,0.05); color: white; border-color: white; }
+
+        /* Radar Animation (Waiting State) */
+        .radar-container { position: relative; width: 100px; height: 100px; margin: 0 auto 30px; display: flex; justify-content: center; align-items: center; }
         
-        /* Background Pulse */
-        .bg-pulse { position:absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(77,124,255,0.1) 0%, rgba(0,0,0,0) 70%); border-radius: 50%; animation: pulseBg 4s infinite; z-index:0; }
-        @keyframes pulseBg { 0%,100%{transform:scale(1); opacity:0.5;} 50%{transform:scale(1.2); opacity:0.2;} }
+        .radar-blip {
+            width: 10px; height: 10px; background: #e94560; border-radius: 50%;
+            box-shadow: 0 0 10px #e94560; z-index: 2;
+        }
+        .radar-wave {
+            position: absolute; width: 100%; height: 100%;
+            border: 1px solid rgba(233, 69, 96, 0.5); border-radius: 50%;
+            animation: ripple 2s infinite cubic-bezier(0, 0.2, 0.8, 1);
+            opacity: 0;
+        }
+        .radar-wave:nth-child(2) { animation-delay: 0.5s; }
+        .radar-wave:nth-child(3) { animation-delay: 1s; }
 
-        .card { position:relative; z-index:1; width: 340px; padding: 40px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; }
-        
-        h1 { margin:0 0 10px; font-weight:300; letter-spacing:2px; }
-        p { color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 0.9em; }
-
-        input { width: 100%; padding: 15px; margin-bottom: 20px; background: #1a1a2e; border: 1px solid #333; color: white; border-radius: 8px; text-align: center; font-size: 1.1em; outline:none; }
-        input:focus { border-color: #e94560; }
-
-        button { width: 100%; padding: 15px; border-radius: 8px; border:none; color:white; font-weight:bold; cursor:pointer; transition:0.3s; font-size:1em; }
-        .btn-connect { background: #e94560; box-shadow: 0 0 15px rgba(233,69,96,0.3); }
-        .btn-check { background: #4d7cff; box-shadow: 0 0 15px rgba(77,124,255,0.3); }
-        button:hover { transform: scale(1.05); }
-
-        /* Loader Animation */
-        .orbit { margin: 30px auto; width: 50px; height: 50px; border: 2px solid rgba(255,255,255,0.1); border-radius: 50%; border-top-color: #4d7cff; animation: spin 1s infinite linear; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes ripple {
+            0% { transform: scale(0); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
 
     </style>
 </head>
 <body>
-    <div class="bg-pulse"></div>
+    <div class="void-bg"></div>
+    <div class="stars"></div>
+    <div class="orbit-system"></div>
 
     <div id="input-state" class="card" style="display:none;">
-        <h1>Find Your Echo</h1>
-        <p>Enter their username to create a link.</p>
-        <input type="text" id="partner" placeholder="Partner's Username">
-        <button class="btn-connect" onclick="pair()">Initiate Link</button>
+        <h1>Establish Link</h1>
+        <p>Enter coordinates to find your partner.</p>
+        <input type="text" id="partner" placeholder="TARGET USERNAME" autocomplete="off">
+        <button class="btn-connect" onclick="pair()">TRANSMIT SIGNAL</button>
     </div>
 
     <div id="waiting-state" class="card" style="display:none;">
-        <h1>Signal Sent</h1>
-        <div class="orbit"></div>
-        <p>Waiting for them to link back...</p>
-        <button class="btn-check" onclick="checkStatus()">Check Connection</button>
+        <div class="radar-container">
+            <div class="radar-blip"></div>
+            <div class="radar-wave"></div>
+            <div class="radar-wave"></div>
+            <div class="radar-wave"></div>
+        </div>
+        <h1 style="font-size: 1.5em; margin-bottom: 5px;">Scanning...</h1>
+        <p>Waiting for return signal.</p>
+        <button class="btn-check" onclick="checkStatus()">PING STATUS</button>
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search); 
-        if(urlParams.get('status') === 'waiting') {
-            document.getElementById('waiting-state').style.display = 'block';
-        } else {
-            document.getElementById('input-state').style.display = 'block';
-        }
+        // Check URL or LocalStorage to determine state
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search); 
+            // Also check if we already have a 'waiting' status saved (optional enhancement)
+            
+            if(urlParams.get('status') === 'waiting') {
+                document.getElementById('input-state').style.display = 'none';
+                document.getElementById('waiting-state').style.display = 'block';
+            } else {
+                document.getElementById('input-state').style.display = 'block';
+                document.getElementById('waiting-state').style.display = 'none';
+            }
+        };
 
         async function pair() {
             const me = localStorage.getItem('pulse_user');
             const partner = document.getElementById('partner').value;
-            if(!partner) return alert("Enter a username");
+            const btn = document.querySelector('.btn-connect');
             
-            const res = await fetch('/pair', {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({ myUsername:me, partnerUsername:partner })
-            });
-            const d = await res.json();
-            if(d.status === 'connected') window.location.href = d.redirect;
-            else if (d.status === 'waiting') {
-                document.getElementById('input-state').style.display = 'none';
-                document.getElementById('waiting-state').style.display = 'block';
-            } else alert(d.message);
+            if(!partner) return alert("Please enter a username");
+            
+            btn.innerHTML = "TRANSMITTING...";
+            
+            try {
+                // Use BASE_URL if defined
+                const url = (typeof BASE_URL !== 'undefined' && BASE_URL) ? `${BASE_URL}/pair` : '/pair';
+
+                const res = await fetch(url, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({ myUsername:me, partnerUsername:partner })
+                });
+                const d = await res.json();
+                
+                if(d.status === 'connected') {
+                    window.location.href = d.redirect;
+                } else if (d.status === 'waiting') {
+                    document.getElementById('input-state').style.display = 'none';
+                    document.getElementById('waiting-state').style.display = 'block';
+                } else {
+                    alert(d.message);
+                    btn.innerHTML = "TRANSMIT SIGNAL";
+                }
+            } catch (e) {
+                alert("Signal Lost (Server Error)");
+                btn.innerHTML = "TRANSMIT SIGNAL";
+            }
         }
 
         async function checkStatus() {
             const me = localStorage.getItem('pulse_user');
-            const res = await fetch('/status', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username: me }) });
-            const d = await res.json();
-            if (d.status === 'connected') window.location.href = d.redirect;
-            else alert("Still waiting for the signal...");
+            const btn = document.querySelector('.btn-check');
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = "PINGING...";
+            
+            try {
+                const url = (typeof BASE_URL !== 'undefined' && BASE_URL) ? `${BASE_URL}/status` : '/status';
+                
+                const res = await fetch(url, { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ username: me }) 
+                });
+                const d = await res.json();
+                
+                if (d.status === 'connected') {
+                    window.location.href = d.redirect;
+                } else {
+                    // Just a subtle feedback that we checked
+                    setTimeout(() => { btn.innerHTML = originalText; }, 500);
+                }
+            } catch (e) {
+                alert("Signal Lost");
+                btn.innerHTML = originalText;
+            }
         }
     </script>
 </body>

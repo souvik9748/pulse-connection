@@ -5,14 +5,12 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
+const cors = require('cors'); // Added for Mobile App support
 
 const app = express();
 const port = process.env.PORT || 3000;
-const adminPassword = process.env.ADMIN_PASSWORD
 
 // --- 1. MONGODB CONNECTION ---
-// On Render, we set this variable in the dashboard.
-// On Localhost, you can replace this string with your Atlas URL for testing.
 const mongoURI = process.env.MONGO_URI;
 
 if (!mongoURI) {
@@ -54,9 +52,15 @@ const Subscription = mongoose.model('Subscription', SubSchema);
 const publicVapidKey = process.env.PUBLIC_VAPID_KEY;
 const privateVapidKey = process.env.PRIVATE_VAPID_KEY;
 
+if (!publicVapidKey || !privateVapidKey) {
+    console.error("❌ ERROR: VAPID keys are missing in .env");
+    process.exit(1);
+}
+
 webpush.setVapidDetails('mailto:test@test.com', publicVapidKey, privateVapidKey);
 
 // --- 4. MIDDLEWARE ---
+app.use(cors()); // Allow connections from Mobile Apps & Web
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public'), { index: false, extensions: ['js', 'css', 'png', 'jpg', 'mp4'] }));
@@ -82,7 +86,8 @@ app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const lowerUser = username.toLowerCase();
 
-    // Admin Backdoor
+    // Admin Backdoor (Secure)
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
     if(lowerUser === 'admin' && password === adminPassword) {
         res.cookie('pulse_user', 'admin', { httpOnly: true });
         return res.json({ success: true, redirect: '/admin.html' });
@@ -91,22 +96,70 @@ app.post('/login', async (req, res) => {
     const user = await User.findOne({ username: lowerUser, password });
     
     if (user) {
+        // Set secure cookie
         res.cookie('pulse_user', user.username, { httpOnly: true });
 
+        // Check if paired
         if (!user.partnerId) {
-            return res.json({ success: true, redirect: '/setup.html', status: 'new', username: user.username });
+            return res.json({ 
+                success: true, 
+                redirect: '/setup.html', 
+                status: 'new', 
+                username: user.username,
+                userId: user._id 
+            });
         }
 
         const partner = await User.findById(user.partnerId);
         
+        // Check if mutual connection
         if (partner && partner.partnerId && partner.partnerId.equals(user._id)) {
+            // FIX: Redirect based on Gender (No dashboard.html)
             const page = user.gender === 'male' ? '/male.html' : '/female.html';
-            return res.json({ success: true, redirect: page, username: user.username });
+            return res.json({ 
+                success: true, 
+                redirect: page, 
+                username: user.username,
+                userId: user._id 
+            });
         } else {
-            return res.json({ success: true, redirect: '/setup.html', status: 'waiting', partnerName: partner ? partner.username : '', username: user.username });
+            return res.json({ 
+                success: true, 
+                redirect: '/setup.html', 
+                status: 'waiting', 
+                partnerName: partner ? partner.username : '', 
+                username: user.username,
+                userId: user._id 
+            });
         }
     } else {
         res.json({ success: false, message: "Invalid credentials" });
+    }
+});
+
+// QUICK LOGIN (Remember Me)
+app.post('/quick-login', async (req, res) => {
+    const { username, userId } = req.body;
+
+    try {
+        const user = await User.findOne({ username: username, _id: userId });
+
+        if (user) {
+            res.cookie('pulse_user', user.username, { 
+                maxAge: 365 * 24 * 60 * 60 * 1000, 
+                httpOnly: true,
+                sameSite: 'strict'
+            });
+            
+            // FIX: Redirect based on Gender
+            const page = user.gender === 'male' ? '/male.html' : '/female.html';
+            return res.json({ success: true, redirect: page });
+        } else {
+            return res.json({ success: false, message: "Invalid saved login." });
+        }
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false });
     }
 });
 
@@ -125,6 +178,7 @@ app.post('/pair', async (req, res) => {
 
     // Check Mutual
     if (partner.partnerId && partner.partnerId.equals(me._id)) {
+        // FIX: Redirect based on Gender
         const page = me.gender === 'male' ? '/male.html' : '/female.html';
         res.json({ success: true, status: 'connected', redirect: page });
     } else {
@@ -139,6 +193,7 @@ app.post('/status', async (req, res) => {
     if (user && user.partnerId) {
         const partner = await User.findById(user.partnerId);
         if (partner && partner.partnerId && partner.partnerId.equals(user._id)) {
+            // FIX: Redirect based on Gender
             const page = user.gender === 'male' ? '/male.html' : '/female.html';
             return res.json({ status: 'connected', redirect: page });
         }
@@ -148,7 +203,7 @@ app.post('/status', async (req, res) => {
 
 // --- FEATURES ---
 
-// SUBSCRIBE
+// SUBSCRIBE (Notifications)
 app.post('/subscribe', async (req, res) => {
     const { username, subscription } = req.body;
     await Subscription.findOneAndUpdate({ username }, { username, subscription }, { upsert: true });
@@ -180,27 +235,56 @@ app.post('/send-love', async (req, res) => {
         try {
             await webpush.sendNotification(partnerSub.subscription, JSON.stringify({ title: 'Pulse', body: message }));
             res.json({ success: true });
-        } catch (err) { res.status(500).json({}); }
+        } catch (err) { 
+            console.error("Push Error", err);
+            res.status(500).json({}); 
+        }
     } else {
         res.json({ success: false, message: "Partner offline" });
     }
 });
 
+// WIDGET API
+app.get('/api/widget/:username', async (req, res) => {
+    const username = req.params.username.toLowerCase();
+    
+    const user = await User.findOne({ username });
+    if (!user || !user.partnerId) return res.json({ text: "No Link" });
+
+    const partner = await User.findById(user.partnerId);
+    if (!partner) return res.json({ text: "No Partner" });
+
+    const lastLog = await History.findOne({ 
+        sender: partner.username, 
+        receiver: user.username 
+    }).sort({ timestamp: -1 });
+
+    if (!lastLog) return res.json({ text: "Waiting..." });
+
+    const now = new Date();
+    const diff = Math.floor((now - lastLog.timestamp) / 60000); 
+    
+    let timeText = `${diff}m ago`;
+    if (diff > 60) timeText = `${Math.floor(diff/60)}h ago`;
+    if (diff > 1440) timeText = `${Math.floor(diff/1440)}d ago`;
+
+    res.json({ 
+        text: `❤️ from ${partner.fullName || partner.username}`, 
+        time: timeText 
+    });
+});
+
 // --- CLIENT & ADMIN HELPERS ---
 
-// Auth Check Helper for Client JS
 app.get('/me', async (req, res) => {
     if (!req.cookies.pulse_user) return res.status(401).json({ user: null });
 
-    // Find the current user
     const user = await User.findOne({ username: req.cookies.pulse_user });
     if (!user) return res.status(401).json({ user: null });
 
-    // Find their partner
     let partnerName = "them";
     if (user.partnerId) {
         const partner = await User.findById(user.partnerId);
-        // Use Full Name if available, otherwise username
         if (partner) partnerName = partner.fullName || partner.username;
     }
 
@@ -240,7 +324,6 @@ app.get('/admin/db', async (req, res) => {
 });
 
 // --- HTML ROUTES (MANUAL GUARD) ---
-// Note: We use the same 'requireAuth' check as before
 const requireAuth = (req, res, next) => {
     if (req.cookies && req.cookies.pulse_user) next();
     else res.redirect('/');
@@ -251,8 +334,11 @@ app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, 'public/i
 app.get('/register.html', (req, res) => res.sendFile(path.join(__dirname, 'public/register.html')));
 
 app.get('/setup.html', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public/setup.html')));
+
+// FIX: SERVE EXISTING FILES (No dashboard.html)
 app.get('/male.html', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public/male.html')));
 app.get('/female.html', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public/female.html')));
+
 app.get('/admin.html', (req, res) => {
     if(req.cookies.pulse_user === 'admin') res.sendFile(path.join(__dirname, 'public/admin.html'));
     else res.status(403).send("Unauthorized");

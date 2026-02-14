@@ -1,41 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pulse | Register</title>
+    <title>Pulse | Genesis</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="client.js"></script>
     <style>
-        body { margin:0; height:100vh; overflow:hidden; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; color:white; background: radial-gradient(circle at top, #2b1055 0%, #7597de 100%); }
-        .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; opacity:0.4; }
+        /* THEME: Genesis Core (Creation) */
+        body { margin:0; height:100vh; overflow:hidden; font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; background: #000; color:white; }
+
+        /* Layer 1: Deep Space Gradient */
+        .void-bg { position:fixed; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle at center, #1a0b2e 0%, #000000 100%); z-index: 0; }
+
+        /* Layer 2: Starfield */
+        .stars { position:absolute; width:100%; height:100%; background: url('https://www.transparenttextures.com/patterns/stardust.png'); opacity:0.3; animation: moveStars 100s linear infinite; z-index: 1; pointer-events: none; }
+        @keyframes moveStars { from{background-position:0 0;} to{background-position:100px 100px;} }
+
+        /* Layer 3: The Genesis Core (Pulsing Glow behind card) */
+        .core {
+            position: absolute; width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.4) 0%, rgba(102, 126, 234, 0.1) 50%, transparent 70%);
+            border-radius: 50%;
+            animation: pulseCore 8s ease-in-out infinite alternate;
+            z-index: 2;
+        }
+        @keyframes pulseCore { from {transform: scale(0.8); opacity: 0.6;} to {transform: scale(1.2); opacity: 1;} }
+
+        /* Layer 4: The Glass Interface */
+        .card { 
+            position: relative; width: 340px; padding: 45px 35px; 
+            background: rgba(25, 25, 35, 0.6); 
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            border-top: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7); 
+            text-align: center; z-index: 10; 
+        }
+
+        /* Typography */
+        h2 { 
+            margin: 0 0 10px; font-weight: 200; font-size: 1.8em; letter-spacing: 4px; text-transform: uppercase; 
+            background: linear-gradient(to right, #fff, #a29bfe); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+        }
+        .subtitle { font-size: 0.8em; color: rgba(255,255,255,0.5); letter-spacing: 1px; margin-bottom: 30px; text-transform: uppercase; }
+
+        /* Modern Inputs */
+        input, select { 
+            width: 100%; padding: 14px; margin: 8px 0; 
+            background: rgba(0,0,0,0.3); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 12px; color: white; outline: none; 
+            transition: 0.3s; box-sizing: border-box; font-size: 0.95em; font-family: inherit;
+        }
+        input:focus, select:focus { border-color: #a29bfe; background: rgba(0,0,0,0.5); box-shadow: 0 0 15px rgba(162, 155, 254, 0.1); }
+        input::placeholder { color: rgba(255,255,255,0.3); }
+
+        /* Custom Select Styling */
+        select { appearance: none; -webkit-appearance: none; cursor: pointer; color: rgba(255,255,255,0.8); }
+        select option { background: #1a1a2e; color: white; }
+
+        /* The Button */
+        button { 
+            width: 100%; padding: 14px; margin-top: 25px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            border: none; border-radius: 12px; color: white; 
+            font-weight: 600; font-size: 1em; letter-spacing: 2px;
+            cursor: pointer; transition: 0.4s; 
+            box-shadow: 0 5px 20px rgba(118, 75, 162, 0.3);
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(118, 75, 162, 0.5); letter-spacing: 3px; }
+
+        /* Links & Errors */
+        a { color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.8em; transition: 0.3s; letter-spacing: 0.5px; }
+        a:hover { color: white; }
         
-        .card { position: relative; width: 320px; padding: 40px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(255,255,255,0.1); }
-
-        h2 { font-weight: 300; letter-spacing: 2px; margin-bottom: 30px; }
-
-        input, select { width: 100%; padding: 12px; margin: 8px 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: white; outline: none; box-sizing: border-box; }
-        select { color: #ccc; } 
-        select option { background: #333; }
-        
-        button { width: 100%; padding: 12px; margin-top: 20px; background: #e94560; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(233, 69, 96, 0.4); }
-        button:hover { background: #ff6b81; transform: scale(1.02); }
-
-        .error { color: #ff6b6b; font-size: 0.8em; margin-top: 10px; display: none; }
-        a { color: rgba(255,255,255,0.7); font-size: 0.9em; text-decoration: none; }
+        .error { 
+            color: #ff6b6b; font-size: 0.8em; margin-top: 15px; display: none; 
+            background: rgba(255, 107, 107, 0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 107, 107, 0.2);
+        }
     </style>
 </head>
 <body>
-    <div class="overlay"></div>
+    <div class="void-bg"></div>
+    <div class="stars"></div>
+    <div class="core"></div>
+
     <div class="card">
-        <h2>Join the Cosmos</h2>
+        <h2>Genesis</h2>
+        <div class="subtitle">Initialize Soul ID</div>
+        
         <form onsubmit="reg(event)">
-            <input type="text" id="fn" placeholder="Full Name" required>
-            <input type="text" id="u" placeholder="Username" required>
-            <input type="password" id="p" placeholder="Password" required>
-            <select id="g">
-                <option value="male">I am Him (Male)</option>
-                <option value="female">I am Her (Female)</option>
-            </select>
-            <button>INITIALIZE SOUL</button>
+            <input type="text" id="fn" placeholder="Full Name" required autocomplete="name">
+            <input type="text" id="u" placeholder="Username" required autocomplete="username">
+            <input type="password" id="p" placeholder="Password" required autocomplete="new-password">
+            
+            <div style="position:relative;">
+                <select id="g">
+                    <option value="male">I am Him (Male)</option>
+                    <option value="female">I am Her (Female)</option>
+                </select>
+                <div style="position:absolute; right:15px; top:18px; pointer-events:none; opacity:0.5; font-size:0.8em;">▼</div>
+            </div>
+
+            <button id="btn">FORGE LINK</button>
             <div id="err" class="error"></div>
-            <p style="margin-top:20px"><a href="index.html">Already connected? Login</a></p>
+            
+            <p style="margin-top:25px"><a href="index.html">ALREADY LINKED? LOGIN</a></p>
         </form>
     </div>
 
@@ -43,24 +114,41 @@
         async function reg(e) {
             e.preventDefault();
             const errDiv = document.getElementById('err');
+            const btn = document.getElementById('btn');
+            
             errDiv.style.display = 'none';
+            btn.innerHTML = "INITIALIZING...";
+            btn.style.opacity = "0.7";
 
-            const res = await fetch('/register', {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({
-                    fullName:document.getElementById('fn').value,
-                    username:document.getElementById('u').value,
-                    password:document.getElementById('p').value,
-                    gender:document.getElementById('g').value
-                })
-            });
-            const d = await res.json();
-            if(d.success) {
-                alert("Soul Registered.");
-                window.location.href='index.html';
-            } else {
-                errDiv.innerText = d.message;
+            try {
+                // Handle Mobile App URL vs Web Relative URL
+                const url = (typeof BASE_URL !== 'undefined' && BASE_URL) ? `${BASE_URL}/register` : '/register';
+
+                const res = await fetch(url, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({
+                        fullName:document.getElementById('fn').value,
+                        username:document.getElementById('u').value,
+                        password:document.getElementById('p').value,
+                        gender:document.getElementById('g').value
+                    })
+                });
+                const d = await res.json();
+                
+                if(d.success) {
+                    btn.innerHTML = "SUCCESS";
+                    setTimeout(() => window.location.href='index.html', 500);
+                } else {
+                    errDiv.innerText = d.message;
+                    errDiv.style.display = 'block';
+                    btn.innerHTML = "FORGE LINK";
+                    btn.style.opacity = "1";
+                }
+            } catch (error) {
+                errDiv.innerText = "Connection Failed. Server Offline.";
                 errDiv.style.display = 'block';
+                btn.innerHTML = "FORGE LINK";
+                btn.style.opacity = "1";
             }
         }
     </script>
