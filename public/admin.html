@@ -166,6 +166,37 @@
                 viewer.innerText = JSON.stringify(data, null, 2);
             } catch(e) { viewer.innerText = "Error fetching DB"; }
         }
+
+        // --- ADMIN LOGOUT BUTTON ---
+        const logoutBtn = document.createElement('button');
+        logoutBtn.innerHTML = "LOGOUT";
+        
+        // Admin Theme Styles (Red/Danger)
+        Object.assign(logoutBtn.style, {
+            position: 'fixed',
+            top: '30px',
+            right: '40px',
+            background: '#da3633', // GitHub 'Danger' Red
+            color: 'white',
+            border: '1px solid rgba(27,31,35,0.15)',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            zIndex: 1000,
+            boxShadow: '0 3px 10px rgba(0,0,0,0.2)'
+        });
+
+        logoutBtn.onmouseenter = () => logoutBtn.style.background = '#b92b27';
+        logoutBtn.onmouseleave = () => logoutBtn.style.background = '#da3633';
+
+        logoutBtn.onclick = () => {
+            if(confirm("Log out of Admin Console?")) {
+                window.location.href = '/logout';
+            }
+        };
+
+        document.body.appendChild(logoutBtn);
     </script>
 </body>
 </html>
