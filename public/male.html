@@ -43,13 +43,24 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: black; 
             z-index: 999;
-            display: flex; /* KEY: Always flex, never none */
-            justify-content: center; align-items: center; 
             
-            /* Hidden State */
-            opacity: 0; 
-            pointer-events: none; 
-            transition: opacity 0.2s ease-in-out; 
+            /* KEY: The element is technically "there" but invisible */
+            visibility: hidden; 
+            opacity: 0;
+            pointer-events: none;
+            
+            /* Smooth fade in/out */
+            transition: opacity 0.2s ease-in-out;
+            
+            /* Always layout flex, never 'none' */
+            display: flex; justify-content: center; align-items: center; 
+        }
+
+        /* The class we add to show it */
+        #vid.active {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
         }
         
         video { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: screen; }
@@ -71,7 +82,7 @@
     </div>
 
     <div id="vid">
-        <video id="sv" src="soul.mp4" playsinline preload="auto"></video>
+        <video id="sv" src="soul.mp4" playsinline webkit-playsinline preload="auto"></video>
     </div>
 
     <script>
@@ -105,42 +116,55 @@
             sv.load(); 
         });
 
-        async function send() {
+        function send() {
             const v = document.getElementById('vid');
             const sv = document.getElementById('sv');
+            let isClosed = false; // Prevents double-closing
 
-            // --- 1. REVEAL VISUALLY ---
-            v.style.opacity = '1';
-            v.style.pointerEvents = 'auto'; // Capture clicks/touches
+            // --- THE EXIT STRATEGY ---
+            const close = () => {
+                if (isClosed) return;
+                isClosed = true;
 
-            // --- 2. RESET & PLAY ---
-            sv.currentTime = 0;
-            
-            try {
-                // This promise resolves when playback ACTUALLY starts
-                await sv.play();
-            } catch (err) {
-                console.error("Playback failed (iOS Restriction):", err);
-                // CRITICAL FALLBACK: If play fails, hide immediately
-                v.style.opacity = '0';
-                v.style.pointerEvents = 'none';
-                alert(`Your heartbeat has reached ${partnerName}.`);
-                return; // Stop execution
-            }
-
-            // --- 3. CLEANUP ON END ---
-            sv.onended = () => {
-                v.style.opacity = '0';
-                v.style.pointerEvents = 'none';
-                // Reset for next time
-                sv.pause(); 
-                sv.currentTime = 0;
+                // Hide immediately
+                v.classList.remove('active');
                 
-                alert(`Your heartbeat has reached ${partnerName}.`);
+                // Stop video logic
+                try {
+                    sv.pause();
+                    sv.currentTime = 0;
+                } catch(e) { console.log(e); }
+
+                // Show the alert slightly after hiding (smoother UI)
+                setTimeout(() => alert(`Your heartbeat has reached ${partnerName}.`), 100);
             };
 
-            // --- 4. BACKGROUND WORK ---
-            // Run this concurrently without blocking the UI
+            // --- 1. SET THE TIME BOMB (Safety Net) ---
+            // If the video freezes, this FORCES it to close after 2.5s
+            // This guarantees you never get stuck on a black screen.
+            const safetyTimer = setTimeout(close, 2500);
+
+            // --- 2. REVEAL & PLAY (Synchronous) ---
+            v.classList.add('active'); // Show black screen
+            sv.currentTime = 0;        // Rewind
+            
+            // Try to play. If it fails, we let the safetyTimer handle the close.
+            const playPromise = sv.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("Playback prevented:", error);
+                    // Optional: Close immediately if blocked
+                    // close(); 
+                });
+            }
+
+            // --- 3. NORMAL END ---
+            sv.onended = () => {
+                clearTimeout(safetyTimer); // Cancel the time bomb
+                close(); // Close normally
+            };
+
+            // --- 4. BACKGROUND LOGIC ---
             if (typeof registerNotifications === "function") {
                 registerNotifications().catch(console.error);
             }
