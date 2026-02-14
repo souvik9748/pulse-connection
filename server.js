@@ -11,13 +11,16 @@ const ExcelJS = require('exceljs');
 
 // EMAIL CONFIGURATION
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',  // Manual host (Force Gmail)
+    port: 465,               // Standard Secure SSL Port
+    secure: true,            // Use SSL
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // ⚠️ THIS FIXES THE BUG:
-    family: 4 // Forces the code to use IPv4 (127.0.0.1 style) instead of IPv6
+    // FORCE IPv4 SETTINGS:
+    family: 4,               // Force IPv4
+    networkCache: false      // Disable DNS caching to prevent holding onto old IPv6 addresses
 });
 
 const app = express();
