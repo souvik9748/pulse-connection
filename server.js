@@ -11,16 +11,21 @@ const ExcelJS = require('exceljs');
 
 // EMAIL CONFIGURATION
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',  // Manual host (Force Gmail)
-    port: 465,               // Standard Secure SSL Port
-    secure: true,            // Use SSL
+    host: 'smtp.gmail.com',
+    port: 587,                 // <--- CHANGED: Standard Submission Port
+    secure: false,             // <--- CHANGED: False means "Use STARTTLS"
+    requireTLS: true,          // <--- ADDED: Force encryption after connecting
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // FORCE IPv4 SETTINGS:
-    family: 4,               // Force IPv4
-    networkCache: false      // Disable DNS caching to prevent holding onto old IPv6 addresses
+    tls: {
+        ciphers: 'SSLv3'       // <--- ADDED: Helps with handshake compatibility
+    },
+    // TIMEOUT SETTINGS (Prevents hanging)
+    connectionTimeout: 10000,  // 10 seconds
+    greetingTimeout: 5000,
+    socketTimeout: 10000
 });
 
 const app = express();
