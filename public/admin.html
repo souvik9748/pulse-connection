@@ -67,34 +67,100 @@
     </div>
 
     <script>
-        // Use the EXACT script from the previous Admin.html provided.
-        // I am just providing the stylistic shell here.
         let userMap = {}; 
-        fetch('/admin/users').then(r=>r.json()).then(u=>{const s=document.getElementById('userList');u.forEach(x=>{s.innerHTML+=`<option value="${x.username}">${x.fullName}</option>`;userMap[x.username]=x.fullName;});applyFilters();});
-        function applyFilters(){ const u=document.getElementById('userList').value; const d=document.getElementById('dateList').value; loadStats(u,d); loadHistory(u,d); }
-        async function loadStats(u,d){
-            const tb=document.getElementById('stats-body'); tb.innerHTML='<tr><td>...</td></tr>';
-            const r=await fetch(`/admin/history?user=${u}&date=${d}`); const da=await r.json();
-            const c={}; da.forEach(l=>{c[l.sender]=(c[l.sender]||0)+1});
-            const s=Object.entries(c).sort((a,b)=>b[1]-a[1]);
-            let h=''; if(s.length===0)h='<tr><td colspan="2" style="color:#888">No data</td></tr>';
-            else s.forEach(([n,v])=>{ h+=`<tr><td>${userMap[n]||n}</td><td><span class="badge">${v}</span></td></tr>`; });
-            tb.innerHTML=h;
+
+        // 1. Fetch Users on Load
+        fetch('/admin/users')
+            .then(r => r.json())
+            .then(users => {
+                const select = document.getElementById('userList');
+                users.forEach(user => {
+                    select.innerHTML += `<option value="${user.username}">${user.fullName || user.username}</option>`;
+                    userMap[user.username] = user.fullName || user.username;
+                });
+                // Initial Load
+                applyFilters();
+            })
+            .catch(err => console.error("Error loading users:", err));
+
+        function applyFilters(){ 
+            const user = document.getElementById('userList').value; 
+            const date = document.getElementById('dateList').value; 
+            loadStats(user, date); 
+            loadHistory(user, date); 
         }
-        async function loadHistory(u,d){
-            const tb=document.getElementById('logs-body'); tb.innerHTML='<tr><td>...</td></tr>';
-            const r=await fetch(`/admin/history?user=${u}&date=${d}`); const da=await r.json();
-            let h=''; if(da.length===0)h='<tr><td colspan="5" style="color:#888">No logs</td></tr>';
-            else da.forEach(l=>{ 
-                let loc='-'; if(l.location&&l.location.lat) loc=`<a href="https://www.google.com/maps?q=${l.location.lat},${l.location.lng}" target="_blank">Map ↗</a>`;
-                h+=`<tr><td>${new Date(l.timestamp).toLocaleString()}</td><td>${l.sender}</td><td>${l.receiver}</td><td>${l.message}</td><td>${loc}</td></tr>`; 
-            });
-            tb.innerHTML=h;
+
+        async function loadStats(user, date){
+            const tbody = document.getElementById('stats-body'); 
+            tbody.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
+            
+            try {
+                const res = await fetch(`/admin/history?user=${user}&date=${date}`); 
+                const data = await res.json();
+                
+                // Count messages per sender
+                const counts = {}; 
+                data.forEach(log => {
+                    counts[log.sender] = (counts[log.sender] || 0) + 1;
+                });
+
+                // Sort by count descending
+                const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+                
+                let html = ''; 
+                if(sorted.length === 0) {
+                    html = '<tr><td colspan="2" style="color:#888">No activity found</td></tr>';
+                } else {
+                    sorted.forEach(([username, count]) => { 
+                        html += `<tr>
+                            <td>${userMap[username] || username}</td>
+                            <td><span class="badge">${count}</span></td>
+                        </tr>`; 
+                    });
+                }
+                tbody.innerHTML = html;
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="2">Error loading stats</td></tr>'; }
         }
+
+        async function loadHistory(user, date){
+            const tbody = document.getElementById('logs-body'); 
+            tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+            
+            try {
+                const res = await fetch(`/admin/history?user=${user}&date=${date}`); 
+                const data = await res.json();
+                
+                let html = ''; 
+                if(data.length === 0) {
+                    html = '<tr><td colspan="5" style="color:#888">No logs found</td></tr>';
+                } else {
+                    data.forEach(log => { 
+                        let locationLink = '-'; 
+                        if(log.location && log.location.lat) {
+                            locationLink = `<a href="https://maps.google.com/?q=${log.location.lat},${log.location.lng}" target="_blank">Map ↗</a>`;
+                        }
+                        
+                        html += `<tr>
+                            <td>${new Date(log.timestamp).toLocaleString()}</td>
+                            <td>${log.sender}</td>
+                            <td>${log.receiver}</td>
+                            <td>${log.message}</td>
+                            <td>${locationLink}</td>
+                        </tr>`; 
+                    });
+                }
+                tbody.innerHTML = html;
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="5">Error loading logs</td></tr>'; }
+        }
+
         async function viewDB(){
-            const v=document.getElementById('json-viewer'); v.innerText="Loading...";
-            const r=await fetch('/admin/db'); const d=await r.json();
-            v.innerText=JSON.stringify(d,null,2);
+            const viewer = document.getElementById('json-viewer'); 
+            viewer.innerText = "Loading...";
+            try {
+                const res = await fetch('/admin/db'); 
+                const data = await res.json();
+                viewer.innerText = JSON.stringify(data, null, 2);
+            } catch(e) { viewer.innerText = "Error fetching DB"; }
         }
     </script>
 </body>
