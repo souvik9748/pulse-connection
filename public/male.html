@@ -85,35 +85,44 @@
         );
 
         async function send() {
-            // --- 1. VISUALS FIRST (Crucial for iOS) ---
             const v = document.getElementById('vid');
             const sv = document.getElementById('sv');
 
-            // Show black overlay immediately
+            // --- 1. DEFINING THE EXIT STRATEGY ---
+            // We define exactly what happens when the video ends (or fails)
+            const finish = () => {
+                // Only run if still visible (prevents double alerts)
+                if (v.style.display !== 'none') {
+                    v.style.display = 'none';
+                    alert(`Your heartbeat has reached ${partnerName}.`);
+                }
+            };
+
+            // Attach the normal "Video Ended" listener
+            sv.onended = finish;
+
+            // --- 2. THE SAFETY VALVE (Crucial Fix) ---
+            // If iOS freezes the video, we FORCE close it after 3 seconds.
+            // This guarantees you never get "stuck forever".
+            setTimeout(finish, 3000);
+
+            // --- 3. SHOW AND PLAY ---
             v.style.display = 'flex';
             sv.currentTime = 0;
 
-            // Attempt to play immediately
-            sv.play().catch(err => {
-                // SAFETY NET: If iOS blocks it, hide the screen so it doesn't get stuck
-                console.error("Video failed to autoplay:", err);
-                v.style.display = 'none';
-                alert("Heartbeat sent!"); // Fallback alert
-            });
-            
-            // Hide overlay when video ends
-            sv.onended = () => { 
-                v.style.display = 'none'; 
-                alert(`Your heartbeat has reached ${partnerName}.`); 
-            };
+            // Small delay (50ms) lets iOS render the black screen BEFORE trying to play
+            // This helps prevent the "freeze" on older iPhones
+            setTimeout(() => {
+                sv.play().catch(err => {
+                    console.log("iOS blocked autoplay:", err);
+                    finish(); // If iOS says no, we close immediately (no black screen)
+                });
+            }, 50);
 
-            // --- 2. LOGIC SECOND (Background Work) ---
-            // Do NOT use 'await' here. Let it run in the background.
+            // --- 4. BACKGROUND LOGIC ---
             if (typeof registerNotifications === "function") {
-                registerNotifications().catch(e => console.log("Notify setup error:", e));
+                registerNotifications().catch(console.error);
             }
-
-            // Send the data
             sendLove(myLoc); 
         }
     </script>
