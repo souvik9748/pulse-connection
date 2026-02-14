@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2589/2589175.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Her | Pulse</title>
     <script src="client.js"></script>
@@ -249,9 +253,9 @@
             }
 
             // 4. Background Logic
-            if (typeof registerNotifications === "function") {
-                registerNotifications().catch(console.error);
-            }
+            // [REMOVED] The duplicate registerNotifications() call. 
+            // Reason: sendLove() inside client.js already does this.
+            
             sendLove(myLoc); 
 
             // 5. Close Automatically after 2.5 Seconds
