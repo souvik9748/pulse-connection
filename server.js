@@ -11,23 +11,30 @@ const ExcelJS = require('exceljs');
 
 // EMAIL CONFIGURATION
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,                 // Back to the Secure SSL Port
-    secure: true,              // True for Port 465
+    // 1. Hostname (No 'service: gmail' magic)
+    host: 'smtp.gmail.com', 
+    
+    // 2. Port & Security (SSL)
+    port: 465,
+    secure: true, 
+
+    // 3. Auth
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // ⚠️ FORCE IPv4 (Fixes ENETUNREACH)
-    family: 4,      
-    
-    // ⚠️ DISABLE DNS CACHE (Fixes "Stuck" Connections)
-    dnsCache: false,
 
-    // ⚠️ TIMEOUTS (Give it more time to connect)
-    connectionTimeout: 20000, // 20 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 20000
+    // 4. NETWORK STRATEGY (The Fix)
+    // Force IPv4 only. Do not let Node try IPv6.
+    family: 4, 
+    
+    // Disable DNS caching so it doesn't remember "bad" IPv6 addresses
+    dnsCache: false, 
+
+    // 5. TIMEOUTS (Don't wait forever)
+    connectionTimeout: 10000, // 10 seconds to connect
+    greetingTimeout: 5000,    // 5 seconds to say "Hello"
+    socketTimeout: 10000      // 10 seconds for data
 });
 
 const app = express();
