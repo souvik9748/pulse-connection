@@ -52,6 +52,13 @@
         <button class="secondary" onclick="applyFilters()" style="margin-left:auto">Refresh</button>
     </div>
 
+    <div class="card" style="border-color: #238636;">
+        <label style="color:#238636">Export Data:</label>
+        <input type="email" id="exportEmail" placeholder="recipient@email.com" style="width:250px;">
+        <button onclick="exportData()" style="background:#238636;">Export to Excel</button>
+        <span id="exportStatus" style="margin-left:15px; font-size:0.9em; color:#8b949e;"></span>
+    </div>
+
     <h2>Connection Velocity</h2>
     <table id="stats-table">
         <thead><tr><th>User</th><th>Signals Sent</th></tr></thead>
@@ -165,6 +172,48 @@
                 const data = await res.json();
                 viewer.innerText = JSON.stringify(data, null, 2);
             } catch(e) { viewer.innerText = "Error fetching DB"; }
+        }
+
+        async function exportData() {
+            const email = document.getElementById('exportEmail').value;
+            const user = document.getElementById('userList').value;
+            const date = document.getElementById('dateList').value; // Uses the same date picker as filter
+            const btn = document.querySelector('button[onclick="exportData()"]');
+            const status = document.getElementById('exportStatus');
+
+            if(!email) return alert("Please enter an email address");
+
+            btn.disabled = true;
+            btn.innerHTML = "Generating...";
+            status.innerText = "";
+
+            try {
+                const res = await fetch('/admin/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email, 
+                        user, 
+                        startDate: date, 
+                        endDate: null
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if(data.success) {
+                    status.innerText = "✅ Sent!";
+                    status.style.color = "#2ea043";
+                } else {
+                    status.innerText = "❌ " + data.message;
+                    status.style.color = "#da3633";
+                }
+            } catch (err) {
+                status.innerText = "❌ Server Error";
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = "Export to Excel";
         }
 
         // --- ADMIN LOGOUT BUTTON ---

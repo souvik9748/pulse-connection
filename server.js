@@ -6,6 +6,17 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
+const ExcelJS = require('exceljs');
+
+// EMAIL CONFIGURATION (You need to set these in your .env file)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER, // Your Gmail address
+        pass: process.env.EMAIL_PASS  // Your Gmail App Password
+    }
+});
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -363,6 +374,95 @@ app.get('/admin/db', async (req, res) => {
     const subs = await Subscription.find({});
     const history = await History.find({});
     res.json({ users, subs, history });
+});
+
+// EXPORT & EMAIL ROUTE
+app.post('/admin/export', async (req, res) => {
+    const { email, user, startDate, endDate } = req.body;
+
+    if (!email) return res.json({ success: false, message: "Target email required" });
+
+    try {
+        // 1. Build Query
+        let query = {};
+        
+        // Date Range
+        if (startDate || endDate) {
+            query.timestamp = {};
+            if (startDate) query.timestamp.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setDate(end.getDate() + 1); // Include the full end day
+                query.timestamp.$lt = end;
+            }
+        }
+
+        // User/Couple Filter
+        if (user) {
+            // Find the user and their partner to get the full "Couple" conversation
+            const targetUser = await User.findOne({ username: user });
+            let partners = [user];
+            
+            if (targetUser && targetUser.partnerId) {
+                const partner = await User.findById(targetUser.partnerId);
+                if (partner) partners.push(partner.username);
+            }
+
+            // Get logs where EITHER person in the couple is the sender or receiver
+            query.$or = [
+                { sender: { $in: partners } },
+                { receiver: { $in: partners } }
+            ];
+        }
+
+        // 2. Fetch Data (Exclude Location)
+        const logs = await History.find(query).select('-location').sort({ timestamp: -1 });
+
+        if (logs.length === 0) return res.json({ success: false, message: "No data found for these filters." });
+
+        // 3. Generate Excel
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('History Logs');
+
+        sheet.columns = [
+            { header: 'Time', key: 'timestamp', width: 25 },
+            { header: 'Sender', key: 'sender', width: 15 },
+            { header: 'Receiver', key: 'receiver', width: 15 },
+            { header: 'Message', key: 'message', width: 40 }
+        ];
+
+        logs.forEach(log => {
+            sheet.addRow({
+                timestamp: log.timestamp.toLocaleString(),
+                sender: log.sender,
+                receiver: log.receiver,
+                message: log.message
+            });
+        });
+
+        // 4. Write to Buffer
+        const buffer = await workbook.xlsx.writeBuffer();
+
+        // 5. Send Email
+        await transporter.sendMail({
+            from: '"Pulse Admin" <' + process.env.EMAIL_USER + '>',
+            to: email,
+            subject: 'Pulse History Export',
+            text: `Attached is the requested history data.\n\nFilters:\nUser: ${user || 'All'}\nRange: ${startDate || 'Start'} to ${endDate || 'Now'}`,
+            attachments: [
+                {
+                    filename: 'Pulse_History_Export.xlsx',
+                    content: buffer
+                }
+            ]
+        });
+
+        res.json({ success: true, message: "Email sent successfully!" });
+
+    } catch (error) {
+        console.error("Export Error:", error);
+        res.json({ success: false, message: "Failed to export email." });
+    }
 });
 
 // --- 7. OTHER ROUTES ---
