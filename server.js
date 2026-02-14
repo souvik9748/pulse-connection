@@ -252,6 +252,12 @@ app.get('/me', async (req, res) => {
     res.json({ user: user ? user.username : null, partnerName });
 });
 
+// --- LOGOUT ROUTE ---
+app.get('/logout', (req, res) => {
+    res.clearCookie('pulse_user');
+    res.redirect('/');
+});
+
 // HTML Serving (Keep manual auth guard)
 const requireAuth = (req, res, next) => {
     if (req.cookies && req.cookies.pulse_user) next();
