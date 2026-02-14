@@ -38,9 +38,21 @@
             100% { box-shadow: 0 0 0 0 rgba(77, 124, 255, 0); transform: scale(1); } 
         }
 
-        /* Video & Guard */
-        #vid { position:fixed; top:0; left:0; width:100%; height:100%; background:black; display:none; justify-content:center; align-items:center; z-index:999; }
-        video { width:100%; height:100%; object-fit:cover; mix-blend-mode:screen; }
+        /* THE GHOST PLAYER: Always rendered, just hidden */
+        #vid { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: black; 
+            z-index: 999;
+            display: flex; /* KEY: Always flex, never none */
+            justify-content: center; align-items: center; 
+            
+            /* Hidden State */
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.2s ease-in-out; 
+        }
+        
+        video { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: screen; }
         #guard { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:1000; text-align:center; }
         #guard button { margin-top:20px; padding:10px 20px; background:#4d7cff; border:none; color:white; border-radius:30px; cursor:pointer; font-weight: bold; letter-spacing: 1px; }
     </style>
@@ -58,7 +70,9 @@
         <div style="text-align:center; color:rgba(255,255,255,0.6); margin-top:30px; letter-spacing:3px; font-size:0.8em; font-weight: 300;">TOUCH TO SIGNAL</div>
     </div>
 
-    <div id="vid"><video id="sv" src="soul.mp4" playsinline></video></div>
+    <div id="vid">
+        <video id="sv" src="soul.mp4" playsinline preload="auto"></video>
+    </div>
 
     <script>
         // 1. Store partner name (Default to 'them' while loading)
@@ -95,40 +109,38 @@
             const v = document.getElementById('vid');
             const sv = document.getElementById('sv');
 
-            // --- A. THE SAFETY VALVE (Keep this!) ---
-            // If the video freezes for ANY reason, close it after 2 seconds.
-            const safetyTimer = setTimeout(() => {
-                if(v.style.display !== 'none') {
-                    v.style.display = 'none';
-                    alert(`Your heartbeat has reached ${partnerName}.`);
-                }
-            }, 2000); // 2 seconds (since video is 1s)
+            // --- 1. REVEAL VISUALLY ---
+            v.style.opacity = '1';
+            v.style.pointerEvents = 'auto'; // Capture clicks/touches
 
-            // --- B. THE SYNC PLAY (The Fix) ---
-            
-            // 1. Show the screen immediately
-            v.style.display = 'flex';
-            
-            // 2. Reset time
+            // --- 2. RESET & PLAY ---
             sv.currentTime = 0;
-
-            // 3. Play IMMEDIATELY (No setTimeout, no delays)
-            // This keeps the "User Gesture Chain" intact for iOS Home Screen Apps
+            
             try {
+                // This promise resolves when playback ACTUALLY starts
                 await sv.play();
             } catch (err) {
-                console.error("Playback failed:", err);
-                // If play fails, the safetyTimer will handle the close
+                console.error("Playback failed (iOS Restriction):", err);
+                // CRITICAL FALLBACK: If play fails, hide immediately
+                v.style.opacity = '0';
+                v.style.pointerEvents = 'none';
+                alert(`Your heartbeat has reached ${partnerName}.`);
+                return; // Stop execution
             }
 
-            // --- C. CLEANUP ---
+            // --- 3. CLEANUP ON END ---
             sv.onended = () => {
-                clearTimeout(safetyTimer); // Cancel the safety timer
-                v.style.display = 'none';
+                v.style.opacity = '0';
+                v.style.pointerEvents = 'none';
+                // Reset for next time
+                sv.pause(); 
+                sv.currentTime = 0;
+                
                 alert(`Your heartbeat has reached ${partnerName}.`);
             };
 
-            // --- D. BACKGROUND LOGIC ---
+            // --- 4. BACKGROUND WORK ---
+            // Run this concurrently without blocking the UI
             if (typeof registerNotifications === "function") {
                 registerNotifications().catch(console.error);
             }
