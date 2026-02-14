@@ -9,21 +9,6 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 const ExcelJS = require('exceljs');
 
-// EMAIL CONFIGURATION
-const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com', // The Brevo Relay Server
-    port: 587,                    // Standard Port
-    secure: false,                // Use STARTTLS
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    // Reliability Settings
-    family: 4,                    // Force IPv4
-    logger: true,                 // Keep logs on for the first test
-    debug: true
-});
-
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -382,54 +367,44 @@ app.get('/admin/db', async (req, res) => {
     res.json({ users, subs, history });
 });
 
-// EXPORT & EMAIL ROUTE
+// [NEW] API-BASED EXPORT ROUTE (Bypasses Firewalls)
 app.post('/admin/export', async (req, res) => {
     const { email, user, startDate, endDate } = req.body;
 
     if (!email) return res.json({ success: false, message: "Target email required" });
 
     try {
-        // 1. Build Query
-        let query = {};
+        console.log("Starting Export generation...");
         
-        // Date Range
+        // 1. Build Query (Same as before)
+        let query = {};
         if (startDate || endDate) {
             query.timestamp = {};
             if (startDate) query.timestamp.$gte = new Date(startDate);
             if (endDate) {
                 const end = new Date(endDate);
-                end.setDate(end.getDate() + 1); // Include the full end day
+                end.setDate(end.getDate() + 1);
                 query.timestamp.$lt = end;
             }
         }
 
-        // User/Couple Filter
         if (user) {
-            // Find the user and their partner to get the full "Couple" conversation
             const targetUser = await User.findOne({ username: user });
             let partners = [user];
-            
             if (targetUser && targetUser.partnerId) {
                 const partner = await User.findById(targetUser.partnerId);
                 if (partner) partners.push(partner.username);
             }
-
-            // Get logs where EITHER person in the couple is the sender or receiver
-            query.$or = [
-                { sender: { $in: partners } },
-                { receiver: { $in: partners } }
-            ];
+            query.$or = [{ sender: { $in: partners } }, { receiver: { $in: partners } }];
         }
 
-        // 2. Fetch Data (Exclude Location)
+        // 2. Fetch Data
         const logs = await History.find(query).select('-location').sort({ timestamp: -1 });
-
-        if (logs.length === 0) return res.json({ success: false, message: "No data found for these filters." });
+        if (logs.length === 0) return res.json({ success: false, message: "No data found." });
 
         // 3. Generate Excel
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('History Logs');
-
         sheet.columns = [
             { header: 'Time', key: 'timestamp', width: 25 },
             { header: 'Sender', key: 'sender', width: 15 },
@@ -446,28 +421,49 @@ app.post('/admin/export', async (req, res) => {
             });
         });
 
-        // 4. Write to Buffer
+        // 4. Convert to Base64 (Required for API)
         const buffer = await workbook.xlsx.writeBuffer();
+        const base64Content = buffer.toString('base64');
 
-        // 5. Send Email
-        await transporter.sendMail({
-            from: '"Pulse Admin" <' + process.env.EMAIL_USER + '>',
-            to: email,
-            subject: 'Pulse History Export',
-            text: `Attached is the requested history data.\n\nFilters:\nUser: ${user || 'All'}\nRange: ${startDate || 'Start'} to ${endDate || 'Now'}`,
-            attachments: [
-                {
-                    filename: 'Pulse_History_Export.xlsx',
-                    content: buffer
-                }
-            ]
+        // 5. SEND VIA BREVO API (The Fix)
+        // This uses standard HTTPS (Port 443) which Render allows.
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': process.env.EMAIL_PASS, // Your API Key
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: { name: "Pulse Admin", email: process.env.EMAIL_USER },
+                to: [{ email: email }],
+                subject: "Pulse History Export",
+                htmlContent: `<p>Attached is the requested history data.</p>
+                              <ul>
+                                <li><strong>User Filter:</strong> ${user || 'All'}</li>
+                                <li><strong>Records:</strong> ${logs.length}</li>
+                              </ul>`,
+                attachment: [
+                    {
+                        content: base64Content,
+                        name: "Pulse_History_Export.xlsx"
+                    }
+                ]
+            })
         });
 
-        res.json({ success: true, message: "Email sent successfully!" });
+        if (response.ok) {
+            console.log("✅ Email sent via API!");
+            res.json({ success: true, message: "Email sent successfully!" });
+        } else {
+            const errorData = await response.json();
+            console.error("❌ API Error:", errorData);
+            res.json({ success: false, message: "API Error: " + (errorData.message || "Unknown") });
+        }
 
     } catch (error) {
-        console.error("Export Error:", error);
-        res.json({ success: false, message: "Failed to export email." });
+        console.error("Export System Error:", error);
+        res.json({ success: false, message: "System Error: " + error.message });
     }
 });
 
