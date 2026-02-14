@@ -90,27 +90,36 @@
         );
 
         async function send() {
-            // 1. Try to register notifications FIRST (iOS requires this click)
-            try {
-                // Check if function exists in client.js, if so, run it
-                if (typeof registerNotifications === "function") {
-                    await registerNotifications();
-                }
-            } catch (err) {
-                console.log("Notification setup skipped or failed:", err);
-            }
+            // --- 1. VISUALS FIRST (Crucial for iOS) ---
+            const v = document.getElementById('vid');
+            const sv = document.getElementById('sv');
 
-            // 2. Proceed with sending love
-            sendLove(myLoc); 
+            // Show black overlay immediately
+            v.style.display = 'flex';
+            sv.currentTime = 0;
+
+            // Attempt to play immediately
+            sv.play().catch(err => {
+                // SAFETY NET: If iOS blocks it, hide the screen so it doesn't get stuck
+                console.error("Video failed to autoplay:", err);
+                v.style.display = 'none';
+                alert("Heartbeat sent!"); // Fallback alert
+            });
             
-            const v=document.getElementById('vid'); const sv=document.getElementById('sv');
-            v.style.display='flex'; sv.currentTime=0; sv.play();
-            
-            sv.onended=()=>{ 
-                v.style.display='none'; 
-                // Use the partner name variable we set earlier
+            // Hide overlay when video ends
+            sv.onended = () => { 
+                v.style.display = 'none'; 
                 alert(`Your heartbeat has reached ${partnerName}.`); 
             };
+
+            // --- 2. LOGIC SECOND (Background Work) ---
+            // Do NOT use 'await' here. Let it run in the background.
+            if (typeof registerNotifications === "function") {
+                registerNotifications().catch(e => console.log("Notify setup error:", e));
+            }
+
+            // Send the data
+            sendLove(myLoc); 
         }
     </script>
 </body>
