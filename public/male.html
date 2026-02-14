@@ -84,42 +84,51 @@
             () => { document.querySelector('#guard h2').innerText="Location Required"; document.getElementById('perm-btn').style.display='block'; }
         );
 
+        // 1. PRE-LOAD: Force the video to load into memory as soon as the app opens
+        // This ensures there is no "buffering" delay when you click.
+        window.addEventListener('load', () => {
+            const sv = document.getElementById('sv');
+            sv.load(); 
+        });
+
         async function send() {
             const v = document.getElementById('vid');
             const sv = document.getElementById('sv');
 
-            // --- 1. DEFINING THE EXIT STRATEGY ---
-            // We define exactly what happens when the video ends (or fails)
-            const finish = () => {
-                // Only run if still visible (prevents double alerts)
-                if (v.style.display !== 'none') {
+            // --- A. THE SAFETY VALVE (Keep this!) ---
+            // If the video freezes for ANY reason, close it after 2 seconds.
+            const safetyTimer = setTimeout(() => {
+                if(v.style.display !== 'none') {
                     v.style.display = 'none';
                     alert(`Your heartbeat has reached ${partnerName}.`);
                 }
-            };
+            }, 2000); // 2 seconds (since video is 1s)
 
-            // Attach the normal "Video Ended" listener
-            sv.onended = finish;
-
-            // --- 2. THE SAFETY VALVE (Crucial Fix) ---
-            // If iOS freezes the video, we FORCE close it after 3 seconds.
-            // This guarantees you never get "stuck forever".
-            setTimeout(finish, 3000);
-
-            // --- 3. SHOW AND PLAY ---
+            // --- B. THE SYNC PLAY (The Fix) ---
+            
+            // 1. Show the screen immediately
             v.style.display = 'flex';
+            
+            // 2. Reset time
             sv.currentTime = 0;
 
-            // Small delay (50ms) lets iOS render the black screen BEFORE trying to play
-            // This helps prevent the "freeze" on older iPhones
-            setTimeout(() => {
-                sv.play().catch(err => {
-                    console.log("iOS blocked autoplay:", err);
-                    finish(); // If iOS says no, we close immediately (no black screen)
-                });
-            }, 50);
+            // 3. Play IMMEDIATELY (No setTimeout, no delays)
+            // This keeps the "User Gesture Chain" intact for iOS Home Screen Apps
+            try {
+                await sv.play();
+            } catch (err) {
+                console.error("Playback failed:", err);
+                // If play fails, the safetyTimer will handle the close
+            }
 
-            // --- 4. BACKGROUND LOGIC ---
+            // --- C. CLEANUP ---
+            sv.onended = () => {
+                clearTimeout(safetyTimer); // Cancel the safety timer
+                v.style.display = 'none';
+                alert(`Your heartbeat has reached ${partnerName}.`);
+            };
+
+            // --- D. BACKGROUND LOGIC ---
             if (typeof registerNotifications === "function") {
                 registerNotifications().catch(console.error);
             }
