@@ -11,30 +11,17 @@ const ExcelJS = require('exceljs');
 
 // EMAIL CONFIGURATION
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,       // Use the SSL Port (Different door than 587)
-    secure: true,    // MUST be true for port 465
+    host: 'smtp-relay.brevo.com', // The Brevo Relay Server
+    port: 587,                    // Standard Port
+    secure: false,                // Use STARTTLS
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // ⚠️ FORCE IPv4
-    family: 4,       
-    
-    // ⚠️ RELAXED SECURITY (Fixes Handshake Hangs)
-    tls: {
-        // This tells the server: "Don't hang up if the certificate looks weird"
-        rejectUnauthorized: false 
-    },
-
-    // ⚠️ KEEP LOGGING (So we can see if it works)
-    logger: true,
-    debug: true,
-
-    // ⚠️ TIMEOUTS
-    connectionTimeout: 10000, 
-    greetingTimeout: 5000,
-    socketTimeout: 10000
+    // Reliability Settings
+    family: 4,                    // Force IPv4
+    logger: true,                 // Keep logs on for the first test
+    debug: true
 });
 
 const app = express();
