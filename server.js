@@ -9,13 +9,15 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 const ExcelJS = require('exceljs');
 
-// EMAIL CONFIGURATION (You need to set these in your .env file)
+// EMAIL CONFIGURATION
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER, // Your Gmail address
-        pass: process.env.EMAIL_PASS  // Your Gmail App Password
-    }
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    // ⚠️ THIS FIXES THE BUG:
+    family: 4 // Forces the code to use IPv4 (127.0.0.1 style) instead of IPv6
 });
 
 const app = express();
