@@ -156,9 +156,15 @@
                 if(r.status===401) window.location.href='/index.html';
                 return r.json();
             })
-            .then(data => {
-                // Save the partner's name if the server sent it
+            .then(data => { 
                 if(data.partnerName) partnerName = data.partnerName;
+                
+                // [NEW] CRITICAL FIX: SYNC LOCAL STORAGE WITH SERVER
+                // This ensures 'pulse_user' matches the actual logged-in user
+                if(data.username) {
+                    localStorage.setItem('pulse_user', data.username);
+                    console.log("Identity Synced:", data.username);
+                }
             });
 
         // SMART RESPONSIVE LOGOUT BUTTON
