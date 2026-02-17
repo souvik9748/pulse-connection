@@ -181,44 +181,44 @@ app.post('/pair', async (req, res) => {
 
 // --- 6. NOTIFICATION ROUTES (THE FIX) ---
 
-// [FIXED] SUBSCRIBE: Auto-Migrates Old Data -> New Data
+// [FIXED] SUBSCRIBE: 1 Device = 1 User (Prevents Ghost Notifications)
 app.post('/subscribe', async (req, res) => {
     const { username, subscription } = req.body;
-    
-    // Find user
-    let userSub = await Subscription.findOne({ username });
-    
-    if (!userSub) {
-        // New user? Create fresh list.
-        userSub = new Subscription({ username, subscriptions: [subscription] });
-    } else {
-        // --- MIGRATION LOGIC START ---
-        
-        // 1. Ensure the array exists
-        if (!userSub.subscriptions) {
-            userSub.subscriptions = [];
-        }
 
-        // 2. Check if they have the OLD format
-        if (userSub.subscription) {
-            console.log(`Migrating ${username} to multi-device format...`);
-            // Move the old device into the new list
-            userSub.subscriptions.push(userSub.subscription);
-            // Delete the old field so we don't do this again
-            userSub.subscription = undefined; 
+    try {
+        // 1. CLEANUP: Remove this device from ALL other users first.
+        // This is the missing piece! It stops 'test1' messages from reaching this phone.
+        await Subscription.updateMany(
+            { "subscriptions.endpoint": subscription.endpoint },
+            { $pull: { subscriptions: { endpoint: subscription.endpoint } } }
+        );
+        
+        // Also clean up the legacy field just in case
+        await Subscription.updateMany(
+            { "subscription.endpoint": subscription.endpoint },
+            { $unset: { subscription: "" } } 
+        );
+
+        // 2. ADD: Assign device to the current user
+        let userSub = await Subscription.findOne({ username });
+        
+        if (!userSub) {
+            userSub = new Subscription({ username, subscriptions: [subscription] });
+        } else {
+            if (!userSub.subscriptions) userSub.subscriptions = [];
+            
+            // Add if not present
+            const exists = userSub.subscriptions.find(s => s.endpoint === subscription.endpoint);
+            if (!exists) userSub.subscriptions.push(subscription);
         }
         
-        // --- MIGRATION LOGIC END ---
-
-        // 3. Add the CURRENT device (if it's not already in the list)
-        const exists = userSub.subscriptions.find(s => s.endpoint === subscription.endpoint);
-        if (!exists) {
-            userSub.subscriptions.push(subscription);
-        }
+        await userSub.save();
+        res.status(201).json({});
+        
+    } catch (e) {
+        console.error("Subscribe Error:", e);
+        res.status(500).json({});
     }
-    
-    await userSub.save();
-    res.status(201).json({});
 });
 
 // [FIXED] SEND LOVE: Supports Old & New Users
@@ -468,15 +468,26 @@ app.post('/admin/export', async (req, res) => {
 });
 
 // --- 7. OTHER ROUTES ---
+// [FIXED] CLIENT IDENTITY (Fixes the "test1" vs "mainMale" bug)
 app.get('/me', async (req, res) => {
     if (!req.cookies.pulse_user) return res.status(401).json({ user: null });
+    
     const user = await User.findOne({ username: req.cookies.pulse_user });
     let partnerName = "them";
+    
     if (user && user.partnerId) {
         const partner = await User.findById(user.partnerId);
         if (partner) partnerName = partner.fullName;
     }
-    res.json({ user: user ? user.username : null, partnerName });
+    
+    // WE NOW SEND BOTH formats ('user' and 'username')
+    // This matches what your male.html is looking for!
+    res.json({ 
+        success: true,
+        user: user ? user.username : null,      // Legacy support
+        username: user ? user.username : null,  // <--- This fixes the identity sync!
+        partnerName 
+    });
 });
 
 // --- LOGOUT ROUTE ---
