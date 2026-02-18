@@ -327,27 +327,44 @@
 
         // SEND Function
         async function sendDrawing() {
-            const btn = document.querySelector('#draw-ui button:nth-child(2)');
-            btn.innerText = "SENDING...";
-            
-            const dataUrl = canvas.toDataURL();
-            const me = localStorage.getItem('pulse_user'); 
+        const btn = document.querySelector('#draw-ui button:nth-child(2)');
+        btn.innerText = "SENDING...";
+        
+        // --- THE FIX: COMPRESS IMAGE ---
+        // 1. Fill background with black (prevents transparent turning white in JPEG)
+        const w = canvas.width;
+        const h = canvas.height;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        const tCtx = tempCanvas.getContext('2d');
+        
+        tCtx.fillStyle = "#000000"; // Black background
+        tCtx.fillRect(0, 0, w, h);
+        tCtx.drawImage(canvas, 0, 0); // Draw your neon lines on top
+        
+        // 2. Compress to JPEG (Quality 0.5 = 50%)
+        // This reduces size from ~4MB to ~200KB!
+        const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.5); 
+        // -------------------------------
 
-            try {
-                await fetch('/draw/send', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ sender: me, image: dataUrl })
-                });
-                alert("Sent! It will appear on her screen.");
-            } catch(e) {
-                alert("Failed to send.");
-            }
+        const me = localStorage.getItem('pulse_user'); 
 
-            clearCanvas();
-            closeDraw();
-            btn.innerText = "SEND 🚀";
+        try {
+            await fetch('/draw/send', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ sender: me, image: dataUrl })
+            });
+            alert("Sent! It will appear on their screen.");
+        } catch(e) {
+            alert("Failed to send. (Check internet)");
         }
+        
+        clearCanvas();
+        closeDraw();
+        btn.innerText = "SEND 🚀";
+    }
 
         // CHECK Function (The Polling Loop)
         setInterval(async () => {
