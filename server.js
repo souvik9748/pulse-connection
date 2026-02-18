@@ -48,6 +48,15 @@ const SubSchema = new mongoose.Schema({
     subscription: Object     // Old Way (Legacy field for migration)
 });
 
+// --- DRAWING SCHEMA ---
+const DrawingSchema = new mongoose.Schema({
+    sender: String,
+    receiver: String,
+    image: String, // Stores the drawing as text (Base64)
+    timestamp: { type: Date, default: Date.now, expires: 60 } // Auto-delete after 60s
+});
+const Drawing = mongoose.model('Drawing', DrawingSchema);
+
 const User = mongoose.model('User', UserSchema);
 const History = mongoose.model('History', HistorySchema);
 const Subscription = mongoose.model('Subscription', SubSchema);
@@ -63,9 +72,13 @@ if (!publicVapidKey || !privateVapidKey) {
 
 webpush.setVapidDetails('mailto:test@test.com', publicVapidKey, privateVapidKey);
 
-// --- 4. MIDDLEWARE ---
+// --- 4. MIDDLEWARE (UPDATED) ---
 app.use(cors());
-app.use(bodyParser.json());
+
+// INCREASE LIMIT TO 50MB (Fixes PayloadTooLargeError)
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public'), { index: false, extensions: ['js', 'css', 'png', 'jpg', 'mp4'] }));
 
@@ -515,6 +528,40 @@ app.get('/setup.html', requireAuth, (req, res) => res.sendFile(path.join(__dirna
 app.get('/admin.html', (req, res) => {
     if(req.cookies.pulse_user === 'admin') res.sendFile(path.join(__dirname, 'public/admin.html'));
     else res.status(403).send("Unauthorized");
+});
+
+// --- DRAWING ROUTES ---
+app.post('/draw/send', async (req, res) => {
+    const { sender, image } = req.body;
+    const user = await User.findOne({ username: sender });
+    
+    if (!user || !user.partnerId) return res.json({ success: false });
+    
+    const partner = await User.findById(user.partnerId);
+    if (!partner) return res.json({ success: false });
+
+    const newDraw = new Drawing({
+        sender: sender,
+        receiver: partner.username,
+        image: image
+    });
+    await newDraw.save();
+    
+    res.json({ success: true });
+});
+
+app.get('/draw/check', async (req, res) => {
+    const { user } = req.query;
+    // Find the newest drawing sent TO me
+    const drawing = await Drawing.findOne({ receiver: user }).sort({ timestamp: -1 });
+    
+    if (drawing) {
+        // Delete it immediately so it doesn't show twice
+        await Drawing.deleteOne({ _id: drawing._id });
+        res.json({ hasDrawing: true, image: drawing.image });
+    } else {
+        res.json({ hasDrawing: false });
+    }
 });
 
 app.listen(port, () => console.log(`Pulse running on ${port}`));

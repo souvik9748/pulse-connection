@@ -136,6 +136,8 @@
     <div id="main-ui">
         <button class="soul-btn" onclick="send()">✦</button>
         <div style="text-align:center; color:rgba(255,255,255,0.6); margin-top:30px; letter-spacing:3px; font-size:0.8em; font-weight: 300;">TOUCH TO SIGNAL</div>
+        
+        <button onclick="openDraw()" style="background:none; border:1px solid rgba(255,255,255,0.2); border-radius:50%; width:50px; height:50px; font-size:20px; cursor:pointer; margin-top:20px; color:white; backdrop-filter:blur(5px);">✏️</button>
     </div>
 
     <div id="anim-overlay">
@@ -145,6 +147,18 @@
     </div>
     
     <audio id="sfx" src="soul.mp4" preload="auto"></audio>
+
+    <div id="draw-ui" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; background:rgba(0,0,0,0.9);">
+        <canvas id="the-canvas" style="touch-action: none;"></canvas>
+        
+        <div style="position:fixed; bottom:30px; width:100%; display:flex; justify-content:center; gap:15px; pointer-events:none;">
+            <button onclick="clearCanvas()" style="pointer-events:auto; background:#da3633; color:white; border:none; padding:12px 24px; border-radius:30px; font-weight:bold;">CLEAR</button>
+            <button onclick="sendDrawing()" style="pointer-events:auto; background:#238636; color:white; border:none; padding:12px 24px; border-radius:30px; font-weight:bold; box-shadow:0 0 15px #238636;">SEND 🚀</button>
+            <button onclick="closeDraw()" style="pointer-events:auto; background:#888; color:white; border:none; padding:12px 24px; border-radius:30px; font-weight:bold;">X</button>
+        </div>
+    </div>
+
+    <img id="ghost-img" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:1500; pointer-events:none; opacity:0; transition: opacity 1s ease-in-out; mix-blend-mode: screen;">
 
     <script>
         // 1. Store partner name (Default to 'them' while loading)
@@ -266,6 +280,103 @@
                 setTimeout(() => alert(`Your heartbeat has reached ${partnerName}.`), 300);
             }, 2500);
         }
+
+        // --- DRAWING LOGIC (Paste at the bottom of script) ---
+        const canvas = document.getElementById('the-canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        // Setup Canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.strokeStyle = "#00ffcc"; // Neon Cyan for Him
+            ctx.lineWidth = 5;
+            ctx.lineCap = "round";
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#00ffcc";
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Controls
+        function openDraw() { document.getElementById('draw-ui').style.display = 'block'; resizeCanvas(); }
+        function closeDraw() { document.getElementById('draw-ui').style.display = 'none'; }
+        function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+        // Drawing Events
+        function start(e) { isDrawing = true; draw(e); }
+        function end() { isDrawing = false; ctx.beginPath(); }
+        function draw(e) {
+            if (!isDrawing) return;
+            const x = e.clientX || e.touches[0].clientX;
+            const y = e.clientY || e.touches[0].clientY;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+        
+        // Attach Listeners
+        canvas.addEventListener('mousedown', start);
+        canvas.addEventListener('touchstart', start);
+        canvas.addEventListener('mouseup', end);
+        canvas.addEventListener('touchend', end);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchmove', draw);
+
+        // SEND Function
+        async function sendDrawing() {
+            const btn = document.querySelector('#draw-ui button:nth-child(2)');
+            btn.innerText = "SENDING...";
+            
+            const dataUrl = canvas.toDataURL();
+            const me = localStorage.getItem('pulse_user'); 
+
+            try {
+                await fetch('/draw/send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sender: me, image: dataUrl })
+                });
+                alert("Sent! It will appear on her screen.");
+            } catch(e) {
+                alert("Failed to send.");
+            }
+
+            clearCanvas();
+            closeDraw();
+            btn.innerText = "SEND 🚀";
+        }
+
+        // CHECK Function (The Polling Loop)
+        setInterval(async () => {
+            const me = localStorage.getItem('pulse_user');
+            if (!me) return;
+
+            try {
+                const res = await fetch(`/draw/check?user=${me}`);
+                const data = await res.json();
+
+                if (data.hasDrawing) {
+                    const img = document.getElementById('ghost-img');
+                    img.src = data.image;
+                    
+                    // Fade In
+                    img.style.opacity = "1"; 
+                    
+                    // Play sound
+                    const sfx = document.getElementById('sfx');
+                    if(sfx) sfx.play().catch(e=>console.log(e));
+
+                    // Fade Out after 8 seconds
+                    setTimeout(() => {
+                        img.style.opacity = "0";
+                        setTimeout(() => { img.src = ""; }, 1000);
+                    }, 8000);
+                }
+            } catch (e) { }
+        }, 5000); // Check every 5 seconds
     </script>
 </body>
 </html>
