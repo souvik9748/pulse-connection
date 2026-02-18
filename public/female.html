@@ -330,48 +330,50 @@
         canvas.addEventListener('mousemove', draw);
         canvas.addEventListener('touchmove', draw);
 
-        // SEND Function
+        // [UPDATED] Send Function (Handles Blocking)
         async function sendDrawing() {
-        const btn = document.querySelector('#draw-ui button:nth-child(2)');
-        btn.innerText = "SENDING...";
-        
-        // --- THE FIX: COMPRESS IMAGE ---
-        // 1. Fill background with black (prevents transparent turning white in JPEG)
-        const w = canvas.width;
-        const h = canvas.height;
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = w;
-        tempCanvas.height = h;
-        const tCtx = tempCanvas.getContext('2d');
-        
-        tCtx.fillStyle = "#000000"; // Black background
-        tCtx.fillRect(0, 0, w, h);
-        tCtx.drawImage(canvas, 0, 0); // Draw your neon lines on top
-        
-        // 2. Compress to JPEG (Quality 0.5 = 50%)
-        // This reduces size from ~4MB to ~200KB!
-        const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.5); 
-        // -------------------------------
+            const btn = document.querySelector('#draw-ui button:nth-child(2)');
+            const originalText = btn.innerText;
+            btn.innerText = "CHECKING...";
+            
+            // Compress Image Logic (Keep your existing compression code here)
+            // ... (The canvas compression lines we added before) ...
+            const w = canvas.width; const h = canvas.height;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w; tempCanvas.height = h;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.fillStyle = "#000000"; tCtx.fillRect(0, 0, w, h);
+            tCtx.drawImage(canvas, 0, 0);
+            const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.5); 
+            // -----------------------------------------------------
 
-        const me = localStorage.getItem('pulse_user'); 
+            const me = localStorage.getItem('pulse_user'); 
 
-        try {
-            await fetch('/draw/send', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ sender: me, image: dataUrl })
-            });
-            alert("Sent! It will appear on their screen.");
-        } catch(e) {
-            alert("Failed to send. (Check internet)");
+            try {
+                const res = await fetch('/draw/send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sender: me, image: dataUrl })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("Sent! Waiting for them to view it.");
+                    clearCanvas();
+                    closeDraw();
+                } else if (data.status === 'pending') {
+                    // BLOCKING ALERT
+                    alert(data.message); 
+                } else {
+                    alert("Error sending drawing.");
+                }
+            } catch(e) {
+                alert("Network Error");
+            }
+            btn.innerText = originalText;
         }
-        
-        clearCanvas();
-        closeDraw();
-        btn.innerText = "SEND 🚀";
-    }
 
-        // CHECK Function (The Polling Loop)
+        // [UPDATED] Check Function (30 Second View Time)
         setInterval(async () => {
             const me = localStorage.getItem('pulse_user');
             if (!me) return;
@@ -384,21 +386,21 @@
                     const img = document.getElementById('ghost-img');
                     img.src = data.image;
                     
-                    // Fade In
+                    // 1. Show Image
                     img.style.opacity = "1"; 
                     
-                    // Play sound
+                    // 2. Play Sound
                     const sfx = document.getElementById('sfx');
                     if(sfx) sfx.play().catch(e=>console.log(e));
 
-                    // Fade Out after 8 seconds
+                    // 3. Wait 30 Seconds, then Fade Out
                     setTimeout(() => {
                         img.style.opacity = "0";
-                        setTimeout(() => { img.src = ""; }, 1000);
-                    }, 8000);
+                        setTimeout(() => { img.src = ""; }, 1000); // Cleanup memory
+                    }, 30000); // <--- 30,000ms = 30 Seconds
                 }
             } catch (e) { }
-        }, 5000); // Check every 5 seconds
+        }, 5000);
     </script>
 </body>
 </html>

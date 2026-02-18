@@ -48,12 +48,13 @@ const SubSchema = new mongoose.Schema({
     subscription: Object     // Old Way (Legacy field for migration)
 });
 
-// --- DRAWING SCHEMA ---
+// [UPDATED] Drawing Schema (8 Hour Safety Expiry)
 const DrawingSchema = new mongoose.Schema({
     sender: String,
     receiver: String,
-    image: String, // Stores the drawing as text (Base64)
-    timestamp: { type: Date, default: Date.now, expires: 60 } // Auto-delete after 60s
+    image: String,
+    // Expire after 8 hours (28800s) if never viewed, so you aren't blocked forever
+    timestamp: { type: Date, default: Date.now, expires: 28800 } 
 });
 const Drawing = mongoose.model('Drawing', DrawingSchema);
 
@@ -530,33 +531,60 @@ app.get('/admin.html', (req, res) => {
     else res.status(403).send("Unauthorized");
 });
 
-// --- DRAWING ROUTES ---
+// --- DRAWING ROUTES (One-at-a-Time Logic) ---
 app.post('/draw/send', async (req, res) => {
     const { sender, image } = req.body;
-    const user = await User.findOne({ username: sender });
-    
+    const safeSender = sender ? sender.toLowerCase() : "";
+
+    const user = await User.findOne({ username: safeSender });
     if (!user || !user.partnerId) return res.json({ success: false });
     
     const partner = await User.findById(user.partnerId);
     if (!partner) return res.json({ success: false });
 
+    // 1. CHECK PENDING: Is there already a drawing waiting for them?
+    const existing = await Drawing.findOne({ receiver: partner.username });
+    if (existing) {
+        return res.json({ 
+            success: false, 
+            status: 'pending', 
+            message: "✋ They haven't seen your last drawing yet!" 
+        });
+    }
+
+    // 2. SAVE NEW DRAWING
     const newDraw = new Drawing({
-        sender: sender,
+        sender: safeSender,
         receiver: partner.username,
         image: image
     });
     await newDraw.save();
+
+    // 3. NOTIFY PARTNER
+    const partnerSub = await Subscription.findOne({ username: partner.username });
+    if (partnerSub && partnerSub.subscriptions) {
+        const payload = JSON.stringify({
+            title: 'Pulse',
+            body: `✨ ${user.fullName || safeSender} sent a secret drawing!`,
+            icon: 'https://cdn-icons-png.flaticon.com/512/2589/2589175.png',
+            data: { type: 'drawing' }
+        });
+        partnerSub.subscriptions.forEach(sub => {
+            webpush.sendNotification(sub, payload).catch(e => console.log("Push failed"));
+        });
+    }
     
-    res.json({ success: true });
+    res.json({ success: true, status: 'sent' });
 });
 
 app.get('/draw/check', async (req, res) => {
     const { user } = req.query;
-    // Find the newest drawing sent TO me
-    const drawing = await Drawing.findOne({ receiver: user }).sort({ timestamp: -1 });
+    const safeUser = user ? user.toLowerCase() : "";
+
+    const drawing = await Drawing.findOne({ receiver: safeUser }).sort({ timestamp: 1 });
     
     if (drawing) {
-        // Delete it immediately so it doesn't show twice
+        // DELETE IMMEDIATELY: This unblocks the sender!
         await Drawing.deleteOne({ _id: drawing._id });
         res.json({ hasDrawing: true, image: drawing.image });
     } else {
