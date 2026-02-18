@@ -49,14 +49,17 @@ const SubSchema = new mongoose.Schema({
 });
 
 // [UPDATED] Drawing Schema (8 Hour Safety Expiry)
+// --- DRAWING SCHEMA ---
 const DrawingSchema = new mongoose.Schema({
     sender: String,
     receiver: String,
     image: String,
-    // Expire after 8 hours (28800s) if never viewed, so you aren't blocked forever
+    // Expire after 8 hours (28800 seconds)
     timestamp: { type: Date, default: Date.now, expires: 28800 } 
 });
-const Drawing = mongoose.model('Drawing', DrawingSchema);
+
+// [FIX] Changed name to 'DrawingBoard' to force MongoDB to reset the timer index
+const Drawing = mongoose.model('DrawingBoard', DrawingSchema);
 
 const User = mongoose.model('User', UserSchema);
 const History = mongoose.model('History', HistorySchema);
@@ -531,20 +534,24 @@ app.get('/admin.html', (req, res) => {
     else res.status(403).send("Unauthorized");
 });
 
-// --- DRAWING ROUTES (One-at-a-Time Logic) ---
+// --- DRAWING ROUTES (One-at-a-Time Logic with Debugging) ---
 app.post('/draw/send', async (req, res) => {
     const { sender, image } = req.body;
     const safeSender = sender ? sender.toLowerCase() : "";
 
+    console.log(`🎨 [DRAW] Attempt from: ${safeSender}`);
+
     const user = await User.findOne({ username: safeSender });
-    if (!user || !user.partnerId) return res.json({ success: false });
+    if (!user || !user.partnerId) return res.json({ success: false, message: "User not found" });
     
     const partner = await User.findById(user.partnerId);
-    if (!partner) return res.json({ success: false });
+    if (!partner) return res.json({ success: false, message: "Partner not found" });
 
-    // 1. CHECK PENDING: Is there already a drawing waiting for them?
+    // 1. CHECK PENDING
     const existing = await Drawing.findOne({ receiver: partner.username });
+    
     if (existing) {
+        console.log(`✋ [DRAW] Blocked! ${partner.username} has a pending drawing.`);
         return res.json({ 
             success: false, 
             status: 'pending', 
@@ -552,7 +559,8 @@ app.post('/draw/send', async (req, res) => {
         });
     }
 
-    // 2. SAVE NEW DRAWING
+    // 2. SAVE NEW
+    console.log(`✅ [DRAW] Saving new drawing for ${partner.username}`);
     const newDraw = new Drawing({
         sender: safeSender,
         receiver: partner.username,
@@ -560,7 +568,7 @@ app.post('/draw/send', async (req, res) => {
     });
     await newDraw.save();
 
-    // 3. NOTIFY PARTNER
+    // 3. NOTIFY
     const partnerSub = await Subscription.findOne({ username: partner.username });
     if (partnerSub && partnerSub.subscriptions) {
         const payload = JSON.stringify({
