@@ -585,15 +585,44 @@ app.post('/draw/send', async (req, res) => {
     res.json({ success: true, status: 'sent' });
 });
 
+// [UPDATED] Check Route (With "Viewed" Notification)
 app.get('/draw/check', async (req, res) => {
     const { user } = req.query;
     const safeUser = user ? user.toLowerCase() : "";
 
+    // Find the drawing waiting for this user
     const drawing = await Drawing.findOne({ receiver: safeUser }).sort({ timestamp: 1 });
     
     if (drawing) {
-        // DELETE IMMEDIATELY: This unblocks the sender!
+        // 1. DELETE IMMEDIATELY (Unblocks the sender)
         await Drawing.deleteOne({ _id: drawing._id });
+
+        // 2. [NEW] SEND "VIEWED" NOTIFICATION TO SENDER
+        try {
+            // Find the sender's notification addresses
+            const senderSub = await Subscription.findOne({ username: drawing.sender });
+            
+            // Find the receiver's name to make the notification friendly
+            const receiverUser = await User.findOne({ username: safeUser });
+            const receiverName = receiverUser ? (receiverUser.fullName || safeUser) : safeUser;
+
+            if (senderSub && senderSub.subscriptions) {
+                const payload = JSON.stringify({
+                    title: 'Pulse',
+                    body: `👀 ${receiverName} just saw your drawing!`,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/2589/2589175.png'
+                });
+
+                // Blast it to all the sender's devices
+                senderSub.subscriptions.forEach(sub => {
+                    webpush.sendNotification(sub, payload).catch(e => console.log("Viewed Push failed"));
+                });
+            }
+        } catch (err) {
+            console.error("Error sending read receipt:", err);
+        }
+
+        // 3. Send the image to the partner's screen
         res.json({ hasDrawing: true, image: drawing.image });
     } else {
         res.json({ hasDrawing: false });
